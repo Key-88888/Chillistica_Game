@@ -49,6 +49,11 @@ public partial class MainWindow : Window
         if (protocolCompatible)
         {
             await SynchronizeEngineStatusAsync();
+
+            if (!_protectionEnabled)
+            {
+                await RefreshEngineStartAvailabilityAsync();
+            }
         }
     }
 
@@ -184,6 +189,89 @@ public partial class MainWindow : Window
             result: engineStatus);
     }
 
+    private async Task<bool> RefreshEngineStartAvailabilityAsync()
+    {
+        string response =
+            await _pipeClient.GetEngineCanStartAsync();
+
+        switch (response.ToUpperInvariant())
+        {
+            case "ENGINE_CAN_START":
+                ToggleProtectionButton.IsEnabled = true;
+
+                _logger.Info(
+                    stage: "EngineCanStart",
+                    result: response);
+
+                return true;
+
+            case "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL":
+                ToggleProtectionButton.IsEnabled = false;
+
+                StatusIndicator.Fill =
+                    new SolidColorBrush(
+                        Color.FromRgb(140, 90, 77));
+
+                StatusText.Text =
+                    "Запуск заблокирован";
+
+                StatusDescription.Text =
+                    "Активный профиль требует явного разрешения";
+
+                EventText.Text =
+                    "Профиль использует административные возможности или WinDivert";
+
+                _logger.Info(
+                    stage: "EngineCanStart",
+                    result: response);
+
+                return false;
+
+            case "ENGINE_CONFIG_INVALID":
+                ToggleProtectionButton.IsEnabled = false;
+
+                StatusIndicator.Fill =
+                    new SolidColorBrush(
+                        Color.FromRgb(140, 90, 77));
+
+                StatusText.Text =
+                    "Ошибка профиля";
+
+                StatusDescription.Text =
+                    "Активный профиль не прошёл проверку";
+
+                EventText.Text =
+                    "Служба использует fallback. Подробности доступны по F9";
+
+                _logger.Info(
+                    stage: "EngineCanStart",
+                    result: response);
+
+                return false;
+
+            default:
+                ToggleProtectionButton.IsEnabled = false;
+
+                StatusIndicator.Fill =
+                    new SolidColorBrush(
+                        Color.FromRgb(140, 90, 77));
+
+                StatusText.Text =
+                    "Служба недоступна";
+
+                StatusDescription.Text =
+                    "Не удалось проверить возможность запуска";
+
+                EventText.Text =
+                    $"ENGINE_CAN_START: {response}";
+
+                _logger.Info(
+                    stage: "EngineCanStart",
+                    result: response);
+
+                return false;
+        }
+    }
     private async Task CheckServiceStatusAsync()
     {
         string status =
@@ -256,9 +344,21 @@ public partial class MainWindow : Window
                 return;
             }
 
+            bool engineCanStart =
+                await RefreshEngineStartAvailabilityAsync();
+
+            if (!engineCanStart)
+            {
+                _logger.Info(
+                    stage: "ProtectionRequest",
+                    result: "Rejected; ENGINE_CAN_START denied");
+
+                return;
+            }
+
             _logger.Info(
                 stage: "ProtectionRequest",
-                result: "Accepted; serviceStatus=SERVICE_RUNNING");
+                result: "Accepted; serviceStatus=SERVICE_RUNNING; engineCanStart=true");
 
             await EnableProtectionAnalysisAsync();
         }
@@ -1285,6 +1385,8 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
+
 
 
 

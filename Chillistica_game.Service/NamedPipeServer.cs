@@ -187,6 +187,9 @@ public sealed class NamedPipeServer : BackgroundService
                 await _engineProcessManager.GetStatusAsync(
                     cancellationToken),
 
+            "ENGINE_CAN_START" =>
+                _engineProcessManager.GetCanStart(),
+
             "ENGINE_DETAILS" =>
                 await _engineProcessManager.GetDetailsAsync(
                     cancellationToken),
@@ -241,5 +244,6 @@ public sealed class NamedPipeServer : BackgroundService
         return response;
     }
 }
+
 
 

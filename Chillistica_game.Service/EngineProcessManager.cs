@@ -27,6 +27,23 @@ public sealed class EngineProcessManager :
             _options);
     }
 
+    public string GetCanStart()
+    {
+        ThrowIfDisposed();
+
+        if (!string.IsNullOrWhiteSpace(
+                _options.ConfigurationWarning))
+        {
+            return "ENGINE_CONFIG_INVALID";
+        }
+
+        if (IsUnsafeProfileBlocked())
+        {
+            return "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL";
+        }
+
+        return "ENGINE_CAN_START";
+    }
     public async Task<string> StartAsync(
         CancellationToken cancellationToken = default)
     {
@@ -681,6 +698,7 @@ public sealed class EngineProcessManager :
         public int KillTimeoutSeconds { get; init; }
     }
 }
+
 
 
 
