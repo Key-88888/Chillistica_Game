@@ -68,7 +68,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        List<DiagnosticsTarget> targets =
+        List<(string Name, string Host)> targets =
             BuildDiagnosticsTargets();
 
         if (targets.Count == 0)
@@ -85,7 +85,7 @@ public partial class MainWindow : Window
         _diagnosticsRunning = true;
 
         StatusDescription.Text =
-            "Выполняется углублённая проверка соединений";
+            "Выполняется проверка соединений";
 
         EventText.Text =
             $"Диагностика: 0 из {targets.Count}";
@@ -96,24 +96,17 @@ public partial class MainWindow : Window
 
             for (int index = 0; index < targets.Count; index++)
             {
-                DiagnosticsTarget target = targets[index];
+                (string name, string host) = targets[index];
 
                 EventText.Text =
-                    $"Проверка {target.ServiceName}: {index + 1} из {targets.Count}";
+                    $"Проверка {name}: {index + 1} из {targets.Count}";
 
-                DiagnosticsResult directResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: false);
+                DiagnosticsResult result =
+                    await _diagnosticsService.CheckServiceAsync(
+                        name,
+                        host);
 
-                results.Add(directResult);
-
-                DiagnosticsResult proxyResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: true);
-
-                results.Add(proxyResult);
+                results.Add(result);
             }
 
             ShowDiagnosticsResults(results);
@@ -157,100 +150,29 @@ public partial class MainWindow : Window
             MessageBoxImage.Information);
     }
 
-    private List<DiagnosticsTarget> BuildDiagnosticsTargets()
+    private List<(string Name, string Host)>
+        BuildDiagnosticsTargets()
     {
-        List<DiagnosticsTarget> targets = new();
+        List<(string Name, string Host)> targets = new();
 
         if (YouTubeProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "YouTube Web",
-                Host = "www.youtube.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Google Video",
-                Host = "googlevideo.com"
-            });
+            targets.Add(("YouTube", "www.youtube.com"));
         }
 
         if (DiscordProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Discord Web",
-                Host = "discord.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Discord Gateway",
-                Host = "gateway.discord.gg"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Discord CDN",
-                Host = "cdn.discordapp.com"
-            });
+            targets.Add(("Discord", "discord.com"));
         }
 
         if (RobloxProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Roblox Web",
-                Host = "www.roblox.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Roblox API",
-                Host = "games.roblox.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Roblox Presence",
-                Host = "presence.roblox.com"
-            });
+            targets.Add(("Roblox", "www.roblox.com"));
         }
 
         if (FortniteProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic Web",
-                Host = "www.epicgames.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic Account",
-                Host = "account-public-service-prod.ol.epicgames.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic Lightswitch",
-                Host = "lightswitch-public-service-prod.ol.epicgames.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Fortnite Public Service",
-                Host = "fortnite-public-service-prod11.ol.epicgames.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic XMPP",
-                Host = "xmpp-service-prod.ol.epicgames.com",
-                Port = 5222,
-                CheckHttps = false
-            });
+            targets.Add(("Fortnite / Epic", "www.epicgames.com"));
         }
 
         return targets;
@@ -270,13 +192,24 @@ public partial class MainWindow : Window
                 ? $"Диагностика завершена: {successful} из {results.Count} работают"
                 : $"Обнаружены проблемы: {failed} из {results.Count}";
 
-        var diagnosticsWindow =
-            new DiagnosticsWindow(results)
-            {
-                Owner = this
-            };
+        StringBuilder report = new();
 
-        diagnosticsWindow.ShowDialog();
+        foreach (DiagnosticsResult result in results)
+        {
+            report.AppendLine(result.ToDisplayText());
+            report.AppendLine();
+        }
+
+        report.AppendLine(
+            $"Итог: работает {successful}, проблем {failed}");
+
+        MessageBox.Show(
+            report.ToString().Trim(),
+            "Результаты диагностики",
+            MessageBoxButton.OK,
+            failed == 0
+                ? MessageBoxImage.Information
+                : MessageBoxImage.Warning);
     }
 
     private static string ProfileState(bool? enabled)
@@ -286,5 +219,3 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
-

@@ -101,19 +101,11 @@ public partial class MainWindow : Window
                 EventText.Text =
                     $"Проверка {target.ServiceName}: {index + 1} из {targets.Count}";
 
-                DiagnosticsResult directResult =
+                DiagnosticsResult result =
                     await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: false);
+                        target);
 
-                results.Add(directResult);
-
-                DiagnosticsResult proxyResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: true);
-
-                results.Add(proxyResult);
+                results.Add(result);
             }
 
             ShowDiagnosticsResults(results);
@@ -171,8 +163,8 @@ public partial class MainWindow : Window
 
             targets.Add(new DiagnosticsTarget
             {
-                ServiceName = "Google Video",
-                Host = "googlevideo.com"
+                ServiceName = "YouTube Video CDN",
+                Host = "r1---sn-n8v7zn7s.googlevideo.com"
             });
         }
 
@@ -270,13 +262,24 @@ public partial class MainWindow : Window
                 ? $"Диагностика завершена: {successful} из {results.Count} работают"
                 : $"Обнаружены проблемы: {failed} из {results.Count}";
 
-        var diagnosticsWindow =
-            new DiagnosticsWindow(results)
-            {
-                Owner = this
-            };
+        StringBuilder report = new();
 
-        diagnosticsWindow.ShowDialog();
+        foreach (DiagnosticsResult result in results)
+        {
+            report.AppendLine(result.ToDisplayText());
+            report.AppendLine();
+        }
+
+        report.AppendLine(
+            $"Итог: работает {successful}, проблем {failed}");
+
+        MessageBox.Show(
+            report.ToString().Trim(),
+            "Результаты диагностики",
+            MessageBoxButton.OK,
+            failed == 0
+                ? MessageBoxImage.Information
+                : MessageBoxImage.Warning);
     }
 
     private static string ProfileState(bool? enabled)
@@ -286,5 +289,3 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
-

@@ -270,13 +270,24 @@ public partial class MainWindow : Window
                 ? $"Диагностика завершена: {successful} из {results.Count} работают"
                 : $"Обнаружены проблемы: {failed} из {results.Count}";
 
-        var diagnosticsWindow =
-            new DiagnosticsWindow(results)
-            {
-                Owner = this
-            };
+        StringBuilder report = new();
 
-        diagnosticsWindow.ShowDialog();
+        foreach (DiagnosticsResult result in results)
+        {
+            report.AppendLine(result.ToDisplayText());
+            report.AppendLine();
+        }
+
+        report.AppendLine(
+            $"Итог: работает {successful}, проблем {failed}");
+
+        MessageBox.Show(
+            report.ToString().Trim(),
+            "Результаты диагностики",
+            MessageBoxButton.OK,
+            failed == 0
+                ? MessageBoxImage.Information
+                : MessageBoxImage.Warning);
     }
 
     private static string ProfileState(bool? enabled)
@@ -286,5 +297,4 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
 
