@@ -63,6 +63,31 @@ public static class EngineProfileLoader
         }
     }
 
+    private static string ResolveEnginePath(
+        string configuredPath)
+    {
+        if (string.IsNullOrWhiteSpace(
+                configuredPath))
+        {
+            throw new InvalidOperationException(
+                "Engine path cannot be empty.");
+        }
+
+        string expanded =
+            Environment.ExpandEnvironmentVariables(
+                configuredPath.Trim());
+
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(
+                expanded);
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                expanded));
+    }
     private static string ResolveProfilePath(
         string configuredPath)
     {
@@ -259,6 +284,33 @@ public static class EngineProfileLoader
             throw new InvalidDataException(
                 $"KillTimeoutSeconds must be between 1 and 60 in '{profilePath}'.");
         }
+
+        string executablePath =
+            ResolveEnginePath(
+                profile.ExecutablePath);
+
+        if (!File.Exists(executablePath))
+        {
+            throw new FileNotFoundException(
+                $"Engine executable from profile was not found: {profile.ExecutablePath}",
+                executablePath);
+        }
+
+        string workingDirectory =
+            string.IsNullOrWhiteSpace(
+                profile.WorkingDirectory)
+                ? "."
+                : profile.WorkingDirectory.Trim();
+
+        string resolvedWorkingDirectory =
+            ResolveEnginePath(
+                workingDirectory);
+
+        if (!Directory.Exists(resolvedWorkingDirectory))
+        {
+            throw new DirectoryNotFoundException(
+                $"Engine working directory from profile was not found: {workingDirectory}; resolved: {resolvedWorkingDirectory}");
+        }
     }
 
     private static void ValidateOptions(
@@ -314,4 +366,5 @@ public static class EngineProfileLoader
         }
     }
 }
+
 
