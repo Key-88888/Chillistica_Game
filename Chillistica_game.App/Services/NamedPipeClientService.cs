@@ -70,39 +70,64 @@ public sealed class NamedPipeClientService
     public async Task<bool> IsServiceAvailableAsync(
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            string response =
-                await SendCommandAsync(
-                    command: "PING",
-                    timeout: TimeSpan.FromSeconds(2),
-                    cancellationToken: cancellationToken);
+        string response =
+            await SendCommandSafelyAsync(
+                command: "PING",
+                unavailableResponse: "SERVICE_UNAVAILABLE",
+                cancellationToken: cancellationToken);
 
-            return string.Equals(
-                response,
-                "PONG",
-                StringComparison.OrdinalIgnoreCase);
-        }
-        catch (
-            Exception exception)
-            when (
-                exception is TimeoutException or
-                OperationCanceledException or
-                IOException or
-                UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return string.Equals(
+            response,
+            "PONG",
+            StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<string> GetServiceStatusAsync(
+    public Task<string> GetServiceStatusAsync(
         CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "STATUS",
+            unavailableResponse: "SERVICE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> GetEngineStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "ENGINE_STATUS",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> StartEngineAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "START_ENGINE",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> StopEngineAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "STOP_ENGINE",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    private async Task<string> SendCommandSafelyAsync(
+        string command,
+        string unavailableResponse,
+        CancellationToken cancellationToken)
     {
         try
         {
             return await SendCommandAsync(
-                command: "STATUS",
-                timeout: TimeSpan.FromSeconds(2),
+                command: command,
+                timeout: TimeSpan.FromSeconds(3),
                 cancellationToken: cancellationToken);
         }
         catch (
@@ -113,10 +138,7 @@ public sealed class NamedPipeClientService
                 IOException or
                 UnauthorizedAccessException)
         {
-            return "SERVICE_UNAVAILABLE";
+            return unavailableResponse;
         }
     }
 }
-
-
-

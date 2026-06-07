@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         await CheckServiceAvailabilityAsync();
+        await SynchronizeEngineStatusAsync();
     }
 
     private async Task CheckServiceAvailabilityAsync()
@@ -66,6 +67,66 @@ public partial class MainWindow : Window
                 stage: "ServiceConnection",
                 result: "Unavailable");
         }
+    }
+
+    private async Task SynchronizeEngineStatusAsync()
+    {
+        string engineStatus =
+            await _pipeClient.GetEngineStatusAsync();
+
+        switch (engineStatus.ToUpperInvariant())
+        {
+            case "ENGINE_RUNNING":
+                _protectionEnabled = true;
+
+                StatusIndicator.Fill =
+                    new SolidColorBrush(
+                        Color.FromRgb(59, 106, 82));
+
+                StatusText.Text =
+                    "Управление включено";
+
+                StatusDescription.Text =
+                    "Служба хранит активное состояние. Внешний сетевой движок пока не подключён";
+
+                ToggleProtectionButton.Content =
+                    "Выключить защиту";
+
+                EventText.Text =
+                    "Состояние службы синхронизировано";
+
+                break;
+
+            case "ENGINE_STOPPED":
+                _protectionEnabled = false;
+
+                StatusIndicator.Fill =
+                    new SolidColorBrush(
+                        Color.FromRgb(140, 90, 77));
+
+                StatusText.Text =
+                    "Защита выключена";
+
+                StatusDescription.Text =
+                    "Сетевой движок пока не запущен";
+
+                ToggleProtectionButton.Content =
+                    "Включить защиту";
+
+                break;
+
+            default:
+                _protectionEnabled = false;
+
+                EventText.Text =
+                    $"Не удалось получить состояние движка: {engineStatus}";
+
+                break;
+        }
+
+        _logger.Info(
+            stage: "EngineStatus",
+            result: engineStatus);
     }
 
     private async Task CheckServiceStatusAsync()
@@ -101,7 +162,7 @@ public partial class MainWindow : Window
     {
         if (_protectionEnabled)
         {
-            DisableProtectionDemo();
+            await DisableProtectionAsync();
             return;
         }
 
@@ -181,7 +242,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _protectionEnabled = true;
         _diagnosticsRunning = true;
 
         _logger.Info(
@@ -266,10 +326,33 @@ public partial class MainWindow : Window
                         "Proxy",
                         StringComparison.OrdinalIgnoreCase));
 
-            StatusText.Text = "Защита подготовлена";
+            EventText.Text =
+                "Передаём службе команду запуска";
+
+            string engineResponse =
+                await _pipeClient.StartEngineAsync();
+
+            bool engineAccepted =
+                engineResponse.Equals(
+                    "ENGINE_STARTED",
+                    StringComparison.OrdinalIgnoreCase) ||
+                engineResponse.Equals(
+                    "ENGINE_ALREADY_RUNNING",
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (!engineAccepted)
+            {
+                throw new InvalidOperationException(
+                    $"Служба отклонила запуск: {engineResponse}");
+            }
+
+            _protectionEnabled = true;
+
+            StatusText.Text =
+                "Управление включено";
 
             StatusDescription.Text =
-                "Сценарии рассчитаны, сетевой движок пока не применён";
+                "Сценарии рассчитаны и состояние службы включено. Внешний сетевой движок пока не подключён";
 
             ToggleProtectionButton.Content =
                 "Выключить защиту";
@@ -280,7 +363,7 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "ProtectionAnalysis",
                 result:
-                    $"Completed; scenarios={decisions.Count}; dpi={dpiCandidates}; proxy={proxyCandidates}");
+                    $"Completed; engineResponse={engineResponse}; scenarios={decisions.Count}; dpi={dpiCandidates}; proxy={proxyCandidates}");
         }
         catch (Exception ex)
         {
@@ -319,26 +402,75 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DisableProtectionDemo()
+    private async Task DisableProtectionAsync()
     {
-        _protectionEnabled = false;
-
-        StatusIndicator.Fill =
-            new SolidColorBrush(
-                Color.FromRgb(140, 90, 77));
-
-        StatusText.Text = "Защита выключена";
-
-        StatusDescription.Text =
-            "Сетевой движок пока не запущен";
-
-        ToggleProtectionButton.Content =
-            "Включить защиту";
+        ToggleProtectionButton.IsEnabled = false;
 
         EventText.Text =
-            "Защита выключена";
+            "Останавливаем состояние службы";
 
-        ResetScenarioLabels();
+        try
+        {
+            string engineResponse =
+                await _pipeClient.StopEngineAsync();
+
+            bool engineStopped =
+                engineResponse.Equals(
+                    "ENGINE_STOPPED",
+                    StringComparison.OrdinalIgnoreCase) ||
+                engineResponse.Equals(
+                    "ENGINE_ALREADY_STOPPED",
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (!engineStopped)
+            {
+                throw new InvalidOperationException(
+                    $"Служба отклонила остановку: {engineResponse}");
+            }
+
+            _protectionEnabled = false;
+
+            StatusIndicator.Fill =
+                new SolidColorBrush(
+                    Color.FromRgb(140, 90, 77));
+
+            StatusText.Text =
+                "Защита выключена";
+
+            StatusDescription.Text =
+                "Сетевой движок пока не запущен";
+
+            ToggleProtectionButton.Content =
+                "Включить защиту";
+
+            EventText.Text =
+                "Состояние службы выключено";
+
+            ResetScenarioLabels();
+
+            _logger.Info(
+                stage: "ProtectionStop",
+                result: engineResponse);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text =
+                "Ошибка выключения";
+
+            StatusDescription.Text =
+                "Не удалось подтвердить остановку через службу";
+
+            EventText.Text =
+                $"Ошибка службы: {ex.Message}";
+
+            _logger.Error(
+                stage: "ProtectionStop",
+                exception: ex);
+        }
+        finally
+        {
+            ToggleProtectionButton.IsEnabled = true;
+        }
     }
 
     private async void DiagnosticsButton_Click(
@@ -440,7 +572,7 @@ public partial class MainWindow : Window
             _diagnosticsRunning = false;
 
             StatusDescription.Text = _protectionEnabled
-                ? "Сейчас работает демонстрационный режим"
+                ? "Состояние службы включено. Внешний сетевой движок пока не подключён"
                 : "Сетевой движок пока не запущен";
         }
     }
@@ -893,6 +1025,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
