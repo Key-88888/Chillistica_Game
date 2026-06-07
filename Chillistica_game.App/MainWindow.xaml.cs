@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private readonly ScenarioPlanner _scenarioPlanner = new();
     private readonly ProcessDetectionService _processDetectionService = new();
     private readonly SettingsService _settingsService = new();
+    private readonly AppLogger _logger = new();
 
     private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
     private readonly List<ScenarioDecision> _lastScenarioDecisions = new();
@@ -23,7 +24,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        _logger.Info(
+            stage: "Application",
+            result: "Started");
+
         LoadSettings();
+        AttachProfileChangeHandlers();
 
         Closing += MainWindow_Closing;
     }
@@ -50,6 +56,10 @@ public partial class MainWindow : Window
 
         _protectionEnabled = true;
         _diagnosticsRunning = true;
+
+        _logger.Info(
+            stage: "ProtectionAnalysis",
+            result: "Started");
 
         ToggleProtectionButton.IsEnabled = false;
 
@@ -139,9 +149,18 @@ public partial class MainWindow : Window
 
             EventText.Text =
                 $"Готово: сценариев {decisions.Count}, DPI-кандидатов {dpiCandidates}, proxy fallback {proxyCandidates}";
+
+            _logger.Info(
+                stage: "ProtectionAnalysis",
+                result:
+                    $"Completed; scenarios={decisions.Count}; dpi={dpiCandidates}; proxy={proxyCandidates}");
         }
         catch (Exception ex)
         {
+            _logger.Error(
+                stage: "ProtectionAnalysis",
+                exception: ex);
+
             _protectionEnabled = false;
 
             StatusIndicator.Fill =
@@ -220,6 +239,10 @@ public partial class MainWindow : Window
 
         _diagnosticsRunning = true;
 
+        _logger.Info(
+            stage: "Diagnostics",
+            result: $"Started; targets={targets.Count}");
+
         StatusDescription.Text =
             "Выполняется углублённая проверка соединений";
 
@@ -255,10 +278,27 @@ public partial class MainWindow : Window
             _lastDiagnosticsResults.Clear();
             _lastDiagnosticsResults.AddRange(results);
 
+            int successfulResults =
+                results.Count(result =>
+                    result.IsSuccessful);
+
+            int failedResults =
+                results.Count -
+                successfulResults;
+
+            _logger.Info(
+                stage: "Diagnostics",
+                result:
+                    $"Completed; successful={successfulResults}; failed={failedResults}");
+
             ShowDiagnosticsResults(results);
         }
         catch (Exception ex)
         {
+            _logger.Error(
+                stage: "Diagnostics",
+                exception: ex);
+
             EventText.Text =
                 "Диагностика завершилась с ошибкой";
 
@@ -339,6 +379,74 @@ public partial class MainWindow : Window
             MessageBoxImage.Information);
     }
 
+    private void AttachProfileChangeHandlers()
+    {
+        YouTubeProfile.Checked +=
+            ProfileSelection_Changed;
+
+        YouTubeProfile.Unchecked +=
+            ProfileSelection_Changed;
+
+        DiscordProfile.Checked +=
+            ProfileSelection_Changed;
+
+        DiscordProfile.Unchecked +=
+            ProfileSelection_Changed;
+
+        RobloxProfile.Checked +=
+            ProfileSelection_Changed;
+
+        RobloxProfile.Unchecked +=
+            ProfileSelection_Changed;
+
+        FortniteProfile.Checked +=
+            ProfileSelection_Changed;
+
+        FortniteProfile.Unchecked +=
+            ProfileSelection_Changed;
+    }
+
+    private void ProfileSelection_Changed(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (
+            sender is not
+            System.Windows.Controls.CheckBox profile)
+        {
+            return;
+        }
+
+        string appName =
+            profile.Name switch
+            {
+                "YouTubeProfile" =>
+                    "YouTube",
+
+                "DiscordProfile" =>
+                    "Discord",
+
+                "RobloxProfile" =>
+                    "Roblox",
+
+                "FortniteProfile" =>
+                    "Fortnite",
+
+                _ =>
+                    profile.Name
+            };
+
+        string state =
+            profile.IsChecked == true
+                ? "Enabled"
+                : "Disabled";
+
+        _logger.Info(
+            stage: "ProfileChanged",
+            app: appName,
+            result: state);
+    }
+
     private void LoadSettings()
     {
         AppSettings settings =
@@ -358,6 +466,11 @@ public partial class MainWindow : Window
 
         EventText.Text =
             "Готово к настройке";
+
+        _logger.Info(
+            stage: "Settings",
+            result:
+                $"Loaded; schema={settings.SchemaVersion}");
     }
 
     private void SaveSettings()
@@ -378,13 +491,31 @@ public partial class MainWindow : Window
         };
 
         _settingsService.Save(settings);
+
+        _logger.Info(
+            stage: "Settings",
+            result:
+                $"Saved; YouTube={settings.YouTubeEnabled}; Discord={settings.DiscordEnabled}; Roblox={settings.RobloxEnabled}; Fortnite={settings.FortniteEnabled}");
     }
 
     private void MainWindow_Closing(
         object? sender,
         System.ComponentModel.CancelEventArgs e)
     {
-        SaveSettings();
+        try
+        {
+            SaveSettings();
+
+            _logger.Info(
+                stage: "Application",
+                result: "Stopped");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(
+                stage: "ApplicationClosing",
+                exception: ex);
+        }
     }
 
     private void UpdateScenarioLabels(
@@ -627,6 +758,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
