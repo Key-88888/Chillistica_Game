@@ -1,4 +1,5 @@
 ﻿using Chillistica_game.Service;
+using Microsoft.Extensions.Options;
 
 HostApplicationBuilder builder =
     Host.CreateApplicationBuilder(args);
@@ -9,9 +10,13 @@ builder.Services.AddWindowsService(options =>
         "Chillistica_game Service";
 });
 
-builder.Services.Configure<EngineOptions>(
-    builder.Configuration.GetSection(
-        EngineOptions.SectionName));
+EngineOptions engineOptions =
+    EngineProfileLoader.LoadOrFallback(
+        builder.Configuration);
+
+builder.Services.AddSingleton<IOptions<EngineOptions>>(
+    Options.Create(
+        engineOptions));
 
 builder.Services.AddSingleton<ServiceLogger>();
 builder.Services.AddSingleton<EngineProcessManager>();
