@@ -11,6 +11,7 @@ public partial class MainWindow : Window
     private readonly DiagnosticsService _diagnosticsService = new();
     private readonly ScenarioPlanner _scenarioPlanner = new();
     private readonly ProcessDetectionService _processDetectionService = new();
+    private readonly SettingsService _settingsService = new();
 
     private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
     private readonly List<ScenarioDecision> _lastScenarioDecisions = new();
@@ -21,6 +22,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        LoadSettings();
+
+        Closing += MainWindow_Closing;
     }
 
     private async void ToggleProtectionButton_Click(
@@ -334,6 +339,54 @@ public partial class MainWindow : Window
             MessageBoxImage.Information);
     }
 
+    private void LoadSettings()
+    {
+        AppSettings settings =
+            _settingsService.Load();
+
+        YouTubeProfile.IsChecked =
+            settings.YouTubeEnabled;
+
+        DiscordProfile.IsChecked =
+            settings.DiscordEnabled;
+
+        RobloxProfile.IsChecked =
+            settings.RobloxEnabled;
+
+        FortniteProfile.IsChecked =
+            settings.FortniteEnabled;
+
+        EventText.Text =
+            "Готово к настройке";
+    }
+
+    private void SaveSettings()
+    {
+        var settings = new AppSettings
+        {
+            YouTubeEnabled =
+                YouTubeProfile.IsChecked == true,
+
+            DiscordEnabled =
+                DiscordProfile.IsChecked == true,
+
+            RobloxEnabled =
+                RobloxProfile.IsChecked == true,
+
+            FortniteEnabled =
+                FortniteProfile.IsChecked == true
+        };
+
+        _settingsService.Save(settings);
+    }
+
+    private void MainWindow_Closing(
+        object? sender,
+        System.ComponentModel.CancelEventArgs e)
+    {
+        SaveSettings();
+    }
+
     private void UpdateScenarioLabels(
         IReadOnlyCollection<ScenarioDecision> decisions)
     {
@@ -574,6 +627,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
