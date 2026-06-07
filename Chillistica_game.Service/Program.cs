@@ -10,6 +10,8 @@ builder.Services.AddWindowsService(options =>
 });
 
 builder.Services.AddSingleton<ServiceLogger>();
+builder.Services.AddSingleton<EngineState>();
+
 builder.Services.AddHostedService<Worker>();
 builder.Services.AddHostedService<NamedPipeServer>();
 
@@ -17,4 +19,3 @@ IHost host =
     builder.Build();
 
 await host.RunAsync();
-

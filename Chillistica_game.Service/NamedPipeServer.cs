@@ -11,11 +11,14 @@ public sealed class NamedPipeServer : BackgroundService
         "Chillistica_game.Control";
 
     private readonly ServiceLogger _logger;
+    private readonly EngineState _engineState;
 
     public NamedPipeServer(
-        ServiceLogger logger)
+        ServiceLogger logger,
+        EngineState engineState)
     {
         _logger = logger;
+        _engineState = engineState;
     }
 
     protected override async Task ExecuteAsync(
@@ -154,7 +157,7 @@ public sealed class NamedPipeServer : BackgroundService
         return security;
     }
 
-    private static string HandleCommand(
+    private string HandleCommand(
         string? command)
     {
         string normalized =
@@ -171,6 +174,15 @@ public sealed class NamedPipeServer : BackgroundService
             "STATUS" =>
                 "SERVICE_RUNNING",
 
+            "ENGINE_STATUS" =>
+                _engineState.GetStatus(),
+
+            "START_ENGINE" =>
+                HandleStartEngine(),
+
+            "STOP_ENGINE" =>
+                HandleStopEngine(),
+
             "" =>
                 "ERROR EMPTY_COMMAND",
 
@@ -178,5 +190,28 @@ public sealed class NamedPipeServer : BackgroundService
                 "ERROR UNKNOWN_COMMAND"
         };
     }
-}
 
+    private string HandleStartEngine()
+    {
+        string response =
+            _engineState.Start();
+
+        _logger.Info(
+            stage: "EngineState",
+            result: response);
+
+        return response;
+    }
+
+    private string HandleStopEngine()
+    {
+        string response =
+            _engineState.Stop();
+
+        _logger.Info(
+            stage: "EngineState",
+            result: response);
+
+        return response;
+    }
+}
