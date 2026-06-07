@@ -121,6 +121,15 @@ public sealed class NamedPipeClientService
             cancellationToken: cancellationToken);
     }
 
+    public Task<string> GetEngineConfigJsonAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "ENGINE_CONFIG_JSON",
+            unavailableResponse: "ENGINE_CONFIG_JSON_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
     public Task<string> StartEngineAsync(
         CancellationToken cancellationToken = default)
     {
@@ -163,5 +172,6 @@ public sealed class NamedPipeClientService
         }
     }
 }
+
 
 

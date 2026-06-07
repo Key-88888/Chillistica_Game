@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace Chillistica_game.Service;
@@ -304,6 +305,45 @@ public sealed class EngineProcessManager :
             $"KILL_TIMEOUT={_options.KillTimeoutSeconds}";
     }
 
+    public string GetConfigJson()
+    {
+        string executableName =
+            Path.GetFileName(
+                Environment.ExpandEnvironmentVariables(
+                    _options.ExecutablePath));
+
+        string workingDirectory =
+            string.IsNullOrWhiteSpace(
+                _options.WorkingDirectory)
+                ? "."
+                : _options.WorkingDirectory.Trim();
+
+        var config =
+            new EngineConfigResponse
+            {
+                Mode =
+                    _options.Mode,
+
+                Executable =
+                    executableName,
+
+                Arguments =
+                    _options.Arguments,
+
+                WorkingDirectory =
+                    workingDirectory,
+
+                StopTimeoutSeconds =
+                    _options.StopTimeoutSeconds,
+
+                KillTimeoutSeconds =
+                    _options.KillTimeoutSeconds
+            };
+
+        return JsonSerializer.Serialize(
+            config);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -555,5 +595,25 @@ public sealed class EngineProcessManager :
             _disposed,
             this);
     }
+
+    private sealed class EngineConfigResponse
+    {
+        public string Mode { get; init; } =
+            string.Empty;
+
+        public string Executable { get; init; } =
+            string.Empty;
+
+        public string Arguments { get; init; } =
+            string.Empty;
+
+        public string WorkingDirectory { get; init; } =
+            string.Empty;
+
+        public int StopTimeoutSeconds { get; init; }
+
+        public int KillTimeoutSeconds { get; init; }
+    }
 }
+
 
