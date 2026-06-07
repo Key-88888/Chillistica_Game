@@ -7,8 +7,7 @@
         MinWidth="760"
         MinHeight="520"
         WindowStartupLocation="CenterScreen"
-        Background="#0B0A09"
-        KeyDown="Window_KeyDown">
+        Background="#0B0A09">
 
     <Window.Resources>
 
@@ -209,26 +208,17 @@
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     Click="ToggleProtectionButton_Click"/>
 
-                            <Border Background="#111713"
-        BorderBrush="#26392F"
-        BorderThickness="1"
-        CornerRadius="12"
-        Padding="14"
-        Margin="0,12,0,0">
+                            <Button Content="Запустить диагностику"
+                                    Style="{StaticResource PremiumButtonStyle}"
+                                    Click="DiagnosticsButton_Click"/>
 
-    <StackPanel>
-        <TextBlock Text="Автоматический режим"
-                   Foreground="#D3DDD7"
-                   FontSize="14"
-                   FontWeight="SemiBold"/>
+                            <Button Content="Подобрать сценарий автоматически"
+                                    Style="{StaticResource PremiumButtonStyle}"
+                                    Click="AutoTuneButton_Click"/>
 
-        <TextBlock Text="После включения программа сама проверит приложения, соединение и выберет подходящий сценарий."
-                   Foreground="#8E9992"
-                   FontSize="12"
-                   TextWrapping="Wrap"
-                   Margin="0,5,0,0"/>
-    </StackPanel>
-</Border>
+                            <Button Content="Проверить запущенные приложения"
+                                    Style="{StaticResource PremiumButtonStyle}"
+                                    Click="DetectProcessesButton_Click"/>
                         </StackPanel>
                     </Border>
 
@@ -322,9 +312,6 @@
         </Grid>
     </Grid>
 </Window>
-
-
-
 
 
 

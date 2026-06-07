@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Input;
 using Chillistica_game.App.Services;
 
 namespace Chillistica_game.App;
@@ -10,7 +9,6 @@ public partial class MainWindow : Window
 {
     private readonly DiagnosticsService _diagnosticsService = new();
     private readonly ScenarioPlanner _scenarioPlanner = new();
-    private readonly ProcessDetectionService _processDetectionService = new();
 
     private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
 
@@ -178,71 +176,6 @@ public partial class MainWindow : Window
         scenarioWindow.ShowDialog();
     }
 
-    private void DetectProcessesButton_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        IReadOnlyList<AppProcessStatus> statuses =
-            _processDetectionService.GetStatuses();
-
-        StringBuilder report = new();
-
-        foreach (AppProcessStatus status in statuses)
-        {
-            report.AppendLine(
-                $"{status.AppName}: {status.StatusText}");
-
-            report.AppendLine(
-                $"Процессы: {status.RunningProcessesText}");
-
-            report.AppendLine();
-        }
-
-        EventText.Text =
-            "Проверка запущенных приложений завершена";
-
-        MessageBox.Show(
-            report.ToString().Trim(),
-            "Запущенные приложения",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
-    }
-
-    private void Window_KeyDown(
-        object sender,
-        KeyEventArgs e)
-    {
-        if (e.Key == Key.F5)
-        {
-            DiagnosticsButton_Click(
-                sender,
-                new RoutedEventArgs());
-
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == Key.F6)
-        {
-            AutoTuneButton_Click(
-                sender,
-                new RoutedEventArgs());
-
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == Key.F7)
-        {
-            DetectProcessesButton_Click(
-                sender,
-                new RoutedEventArgs());
-
-            e.Handled = true;
-            return;
-        }
-    }
-
     private List<DiagnosticsTarget> BuildDiagnosticsTargets()
     {
         List<DiagnosticsTarget> targets = new();
@@ -372,6 +305,4 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
-
 

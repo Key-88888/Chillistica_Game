@@ -7,8 +7,7 @@
         MinWidth="760"
         MinHeight="520"
         WindowStartupLocation="CenterScreen"
-        Background="#0B0A09"
-        KeyDown="Window_KeyDown">
+        Background="#0B0A09">
 
     <Window.Resources>
 
@@ -229,6 +228,26 @@
                    Margin="0,5,0,0"/>
     </StackPanel>
 </Border>
+
+<Expander Header="Инструменты разработки"
+          Foreground="#8E9992"
+          Margin="0,14,0,0"
+          IsExpanded="False">
+
+    <StackPanel Margin="0,8,0,0">
+        <Button Content="Запустить диагностику"
+                Style="{StaticResource PremiumButtonStyle}"
+                Click="DiagnosticsButton_Click"/>
+
+        <Button Content="Подобрать сценарий"
+                Style="{StaticResource PremiumButtonStyle}"
+                Click="AutoTuneButton_Click"/>
+
+        <Button Content="Проверить процессы"
+                Style="{StaticResource PremiumButtonStyle}"
+                Click="DetectProcessesButton_Click"/>
+    </StackPanel>
+</Expander>
                         </StackPanel>
                     </Border>
 
@@ -322,7 +341,6 @@
         </Grid>
     </Grid>
 </Window>
-
 
 
 
