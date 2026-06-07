@@ -105,7 +105,73 @@ public partial class MainWindow : Window
             return;
         }
 
-        await EnableProtectionAnalysisAsync();
+        ToggleProtectionButton.IsEnabled = false;
+
+        EventText.Text =
+            "Проверяем службу управления";
+
+        try
+        {
+            string serviceStatus =
+                await _pipeClient.GetServiceStatusAsync();
+
+            if (!serviceStatus.Equals(
+                    "SERVICE_RUNNING",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                StatusIndicator.Fill =
+                    new SolidColorBrush(
+                        Color.FromRgb(140, 90, 77));
+
+                StatusText.Text =
+                    "Служба недоступна";
+
+                StatusDescription.Text =
+                    "Сначала должна быть запущена служба управления";
+
+                EventText.Text =
+                    "Не удалось подключиться к службе Chillistica_game";
+
+                _logger.Info(
+                    stage: "ProtectionRequest",
+                    result:
+                        $"Rejected; serviceStatus={serviceStatus}");
+
+                return;
+            }
+
+            _logger.Info(
+                stage: "ProtectionRequest",
+                result: "Accepted; serviceStatus=SERVICE_RUNNING");
+
+            await EnableProtectionAnalysisAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusIndicator.Fill =
+                new SolidColorBrush(
+                    Color.FromRgb(140, 90, 77));
+
+            StatusText.Text =
+                "Ошибка подключения";
+
+            StatusDescription.Text =
+                "Не удалось проверить службу управления";
+
+            EventText.Text =
+                $"Ошибка службы: {ex.Message}";
+
+            _logger.Error(
+                stage: "ProtectionRequest",
+                exception: ex);
+        }
+        finally
+        {
+            if (!_diagnosticsRunning)
+            {
+                ToggleProtectionButton.IsEnabled = true;
+            }
+        }
     }
 
     private async Task EnableProtectionAnalysisAsync()
@@ -827,6 +893,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
