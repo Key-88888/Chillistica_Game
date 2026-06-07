@@ -1,0 +1,113 @@
+﻿param(
+    [string]$ProjectRoot = "$env:USERPROFILE\Chillistica_game",
+    [string]$ServiceName = "Chillistica_game.Service",
+    [string]$DisplayName = "Chillistica_game Service",
+    [string]$InstallDir = "$env:ProgramFiles\Chillistica_game\Service"
+)
+
+$ErrorActionPreference = "Stop"
+
+function Assert-Admin {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        throw "Run this script from PowerShell as Administrator."
+    }
+}
+
+function Test-PipePing {
+    param(
+        [int]$TimeoutMs = 3000
+    )
+
+    try {
+        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(
+            ".",
+            "Chillistica_game.Control",
+            [System.IO.Pipes.PipeDirection]::InOut
+        )
+
+        $pipe.Connect($TimeoutMs)
+
+        $writer = New-Object System.IO.StreamWriter($pipe)
+        $writer.AutoFlush = $true
+
+        $reader = New-Object System.IO.StreamReader($pipe)
+
+        $writer.WriteLine("PING")
+        $response = $reader.ReadLine()
+
+        $reader.Dispose()
+        $writer.Dispose()
+        $pipe.Dispose()
+
+        return ($response -eq "PONG")
+    }
+    catch {
+        return $false
+    }
+}
+
+Assert-Admin
+
+$serviceProject = Join-Path $ProjectRoot "Chillistica_game.Service\Chillistica_game.Service.csproj"
+$publishTemp = Join-Path $ProjectRoot "artifacts\Service-install-temp"
+$exePath = Join-Path $InstallDir "Chillistica_game.Service.exe"
+
+if (-not (Test-Path $serviceProject)) {
+    throw "Service project not found: $serviceProject"
+}
+
+$existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($existing) {
+    throw "Service '$ServiceName' already exists. Use scripts\update-service.ps1 instead."
+}
+
+Write-Host "Publishing service..." -ForegroundColor Cyan
+
+if (Test-Path $publishTemp) {
+    Remove-Item $publishTemp -Recurse -Force
+}
+
+dotnet publish `
+    $serviceProject `
+    -c Release `
+    -r win-x64 `
+    --self-contained true `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -o $publishTemp
+
+if (-not (Test-Path (Join-Path $publishTemp "Chillistica_game.Service.exe"))) {
+    throw "Publish failed: service exe was not created."
+}
+
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+Copy-Item "$publishTemp\*" $InstallDir -Recurse -Force
+
+Write-Host "Creating Windows service..." -ForegroundColor Cyan
+
+New-Service `
+    -Name $ServiceName `
+    -BinaryPathName "`"$exePath`"" `
+    -DisplayName $DisplayName `
+    -StartupType Automatic
+
+sc.exe failure $ServiceName reset= 86400 actions= restart/5000/restart/15000/none/0 | Out-Null
+
+Start-Service $ServiceName
+
+Start-Sleep -Seconds 2
+
+$svc = Get-CimInstance Win32_Service -Filter "Name='$ServiceName'"
+if ($svc.State -ne "Running") {
+    throw "Service was created but is not running. Current state: $($svc.State)"
+}
+
+if (-not (Test-PipePing)) {
+    throw "Service is running but Named Pipe PING failed."
+}
+
+Write-Host "Service installed and PING OK." -ForegroundColor Green
+Get-CimInstance Win32_Service -Filter "Name='$ServiceName'" |
+    Select-Object Name, State, StartMode, ProcessId, PathName

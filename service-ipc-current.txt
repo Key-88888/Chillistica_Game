@@ -1,0 +1,112 @@
+﻿===== SERVICE IPC INSPECTION =====
+
+===== FILE: .\Chillistica_game.Service\Program.cs =====
+
+using Chillistica_game.Service;
+
+HostApplicationBuilder builder =
+    Host.CreateApplicationBuilder(args);
+
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName =
+        "Chillistica_game Service";
+});
+
+builder.Services.AddSingleton<ServiceLogger>();
+builder.Services.AddHostedService<Worker>();
+builder.Services.AddHostedService<NamedPipeServer>();
+
+IHost host =
+    builder.Build();
+
+await host.RunAsync();
+
+
+
+===== FILE: .\Chillistica_game.Service\Worker.cs =====
+
+namespace Chillistica_game.Service;
+
+public sealed class Worker : BackgroundService
+{
+    private readonly ServiceLogger _logger;
+
+    public Worker(
+        ServiceLogger logger)
+    {
+        _logger =
+            logger;
+    }
+
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
+    {
+        _logger.Info(
+            stage: "Service",
+            result: "Started");
+
+        try
+        {
+            await Task.Delay(
+                Timeout.InfiniteTimeSpan,
+                stoppingToken);
+        }
+        catch (OperationCanceledException)
+            when (stoppingToken.IsCancellationRequested)
+        {
+            // Нормальная остановка службы.
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "ServiceRuntime",
+                exception: exception);
+
+            throw;
+        }
+        finally
+        {
+            _logger.Info(
+                stage: "Service",
+                result: "Stopped");
+        }
+    }
+}
+
+
+===== FILE: .\Chillistica_game.Service\Chillistica_game.Service.csproj =====
+
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Chillistica_game.Service-0f47c249-0a9a-4842-b074-31377bb42e3d</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+  </ItemGroup>
+</Project>
+
+
+
+===== SERVICE PROJECT TREE =====
+
+
+FullName                                                                                 Length
+--------                                                                                 ------
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\appsettings.Development.json       137
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\appsettings.json                   137
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\Chillistica_game.Service.csproj    549
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\NamedPipeServer.cs                4728
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\Program.cs                         435
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\ServiceLogger.cs                  2605
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\Worker.cs                         1063
+C:\Users\lacob\Chillistica_game\Chillistica_game.Service\Properties\launchSettings.json     292
+
+
+

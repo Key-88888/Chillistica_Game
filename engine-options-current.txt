@@ -1,0 +1,499 @@
+﻿===== ENGINE OPTIONS INSPECTION =====
+
+===== FILE: .\Chillistica_game.Service\EngineProcessManager.cs =====
+
+using System.Diagnostics;
+
+namespace Chillistica_game.Service;
+
+public sealed class EngineProcessManager :
+    IAsyncDisposable
+{
+    private readonly ServiceLogger _logger;
+    private readonly SemaphoreSlim _sync =
+        new(initialCount: 1, maxCount: 1);
+
+    private Process? _process;
+    private bool _disposed;
+
+    public EngineProcessManager(
+        ServiceLogger logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task<string> StartAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (IsProcessRunningUnsafe())
+            {
+                return "ENGINE_ALREADY_RUNNING";
+            }
+
+            string executablePath =
+                Path.Combine(
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.System),
+                    "PING.EXE");
+
+            if (!File.Exists(executablePath))
+            {
+                throw new FileNotFoundException(
+                    "Test engine executable was not found.",
+                    executablePath);
+            }
+
+            var startInfo =
+                new ProcessStartInfo
+                {
+                    FileName = executablePath,
+                    Arguments = "127.0.0.1 -t",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory =
+                        AppContext.BaseDirectory
+                };
+
+            var process =
+                new Process
+                {
+                    StartInfo = startInfo,
+                    EnableRaisingEvents = true
+                };
+
+            process.OutputDataReceived +=
+                Process_OutputDataReceived;
+
+            process.ErrorDataReceived +=
+                Process_ErrorDataReceived;
+
+            process.Exited +=
+                Process_Exited;
+
+            if (!process.Start())
+            {
+                process.Dispose();
+
+                throw new InvalidOperationException(
+                    "Test engine process did not start.");
+            }
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            _process = process;
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"Started; pid={process.Id}; file={executablePath}");
+
+            return "ENGINE_STARTED";
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProcessStart",
+                exception: exception);
+
+            throw;
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async Task<string> StopAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (!IsProcessRunningUnsafe())
+            {
+                return "ENGINE_ALREADY_STOPPED";
+            }
+
+            Process process =
+                _process!;
+
+            int processId =
+                process.Id;
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"StopRequested; pid={processId}");
+
+            bool exitedGracefully = false;
+
+            try
+            {
+                if (process.CloseMainWindow())
+                {
+                    exitedGracefully =
+                        await WaitForExitAsync(
+                            process,
+                            timeout: TimeSpan.FromSeconds(2),
+                            cancellationToken);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                exitedGracefully = true;
+            }
+
+            if (!exitedGracefully &&
+                !process.HasExited)
+            {
+                _logger.Info(
+                    stage: "EngineProcess",
+                    result:
+                        $"ForceKill; pid={processId}");
+
+                process.Kill(
+                    entireProcessTree: true);
+
+                bool exitedAfterKill =
+                    await WaitForExitAsync(
+                        process,
+                        timeout: TimeSpan.FromSeconds(5),
+                        cancellationToken);
+
+                if (!exitedAfterKill &&
+                    !process.HasExited)
+                {
+                    throw new TimeoutException(
+                        $"Engine process {processId} did not exit after Kill.");
+                }
+            }
+
+            CleanupProcessUnsafe();
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"Stopped; pid={processId}");
+
+            return "ENGINE_STOPPED";
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProcessStop",
+                exception: exception);
+
+            throw;
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async Task<string> GetStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            return IsProcessRunningUnsafe()
+                ? "ENGINE_RUNNING"
+                : "ENGINE_STOPPED";
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async Task<string> GetDetailsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (!IsProcessRunningUnsafe())
+            {
+                return "ENGINE_STOPPED PID=0";
+            }
+
+            return $"ENGINE_RUNNING PID={_process!.Id}";
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await StopAsync();
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProcessDispose",
+                exception: exception);
+        }
+
+        await _sync.WaitAsync();
+
+        try
+        {
+            CleanupProcessUnsafe();
+            _disposed = true;
+        }
+        finally
+        {
+            _sync.Release();
+            _sync.Dispose();
+        }
+    }
+
+    private void Process_Exited(
+        object? sender,
+        EventArgs e)
+    {
+        if (sender is not Process process)
+        {
+            return;
+        }
+
+        int processId;
+
+        try
+        {
+            processId = process.Id;
+        }
+        catch
+        {
+            processId = 0;
+        }
+
+        int? exitCode = null;
+
+        try
+        {
+            exitCode = process.ExitCode;
+        }
+        catch
+        {
+            // Код завершения может быть уже недоступен.
+        }
+
+        _logger.Info(
+            stage: "EngineProcess",
+            result:
+                $"Exited; pid={processId}; exitCode={exitCode?.ToString() ?? "unknown"}");
+    }
+
+    private void Process_OutputDataReceived(
+        object sender,
+        DataReceivedEventArgs e)
+    {
+        // Поток читается, чтобы буфер процесса не переполнился.
+    }
+
+    private void Process_ErrorDataReceived(
+        object sender,
+        DataReceivedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Data))
+        {
+            return;
+        }
+
+        _logger.Info(
+            stage: "EngineProcessStderr",
+            result: e.Data);
+    }
+
+    private bool IsProcessRunningUnsafe()
+    {
+        return
+            _process is not null &&
+            !_process.HasExited;
+    }
+
+    private void CleanupExitedProcessUnsafe()
+    {
+        if (_process is null)
+        {
+            return;
+        }
+
+        if (!_process.HasExited)
+        {
+            return;
+        }
+
+        CleanupProcessUnsafe();
+    }
+
+    private void CleanupProcessUnsafe()
+    {
+        if (_process is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _process.OutputDataReceived -=
+                Process_OutputDataReceived;
+
+            _process.ErrorDataReceived -=
+                Process_ErrorDataReceived;
+
+            _process.Exited -=
+                Process_Exited;
+
+            _process.Dispose();
+        }
+        finally
+        {
+            _process = null;
+        }
+    }
+
+    private static async Task<bool> WaitForExitAsync(
+        Process process,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        if (process.HasExited)
+        {
+            return true;
+        }
+
+        using CancellationTokenSource timeoutCts =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+
+        timeoutCts.CancelAfter(
+            timeout);
+
+        try
+        {
+            await process.WaitForExitAsync(
+                timeoutCts.Token);
+
+            return true;
+        }
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            return process.HasExited;
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(
+            _disposed,
+            this);
+    }
+}
+
+
+===== FILE: .\Chillistica_game.Service\Program.cs =====
+
+using Chillistica_game.Service;
+
+HostApplicationBuilder builder =
+    Host.CreateApplicationBuilder(args);
+
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName =
+        "Chillistica_game Service";
+});
+
+builder.Services.AddSingleton<ServiceLogger>();
+builder.Services.AddSingleton<EngineProcessManager>();
+
+builder.Services.AddHostedService<Worker>();
+builder.Services.AddHostedService<NamedPipeServer>();
+
+IHost host =
+    builder.Build();
+
+await host.RunAsync();
+
+
+===== FILE: .\Chillistica_game.Service\appsettings.json =====
+
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  }
+}
+
+
+===== FILE: .\Chillistica_game.Service\appsettings.Development.json =====
+
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  }
+}
+
+
+===== FILE: .\Chillistica_game.Service\Chillistica_game.Service.csproj =====
+
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Chillistica_game.Service-0f47c249-0a9a-4842-b074-31377bb42e3d</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+  </ItemGroup>
+</Project>
+
+

@@ -1,0 +1,972 @@
+﻿===== ENGINE CONFIG INSPECTION =====
+
+===== FILE: .\Chillistica_game.Service\EngineOptions.cs =====
+
+namespace Chillistica_game.Service;
+
+public sealed class EngineOptions
+{
+    public const string SectionName =
+        "Engine";
+
+    public string Mode { get; init; } =
+        "Test";
+
+    public string ExecutablePath { get; init; } =
+        "%SystemRoot%\\System32\\PING.EXE";
+
+    public string Arguments { get; init; } =
+        "127.0.0.1 -t";
+
+    public string WorkingDirectory { get; init; } =
+        ".";
+
+    public int StopTimeoutSeconds { get; init; } =
+        2;
+
+    public int KillTimeoutSeconds { get; init; } =
+        5;
+}
+
+
+===== FILE: .\Chillistica_game.Service\EngineProcessManager.cs =====
+
+using System.Diagnostics;
+using Microsoft.Extensions.Options;
+
+namespace Chillistica_game.Service;
+
+public sealed class EngineProcessManager :
+    IAsyncDisposable
+{
+    private readonly ServiceLogger _logger;
+    private readonly EngineOptions _options;
+
+    private readonly SemaphoreSlim _sync =
+        new(initialCount: 1, maxCount: 1);
+
+    private Process? _process;
+    private bool _disposed;
+
+    public EngineProcessManager(
+        ServiceLogger logger,
+        IOptions<EngineOptions> options)
+    {
+        _logger = logger;
+        _options = options.Value;
+
+        ValidateOptions(
+            _options);
+    }
+
+    public async Task<string> StartAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (IsProcessRunningUnsafe())
+            {
+                return "ENGINE_ALREADY_RUNNING";
+            }
+
+            string executablePath =
+                ResolveExecutablePath(
+                    _options.ExecutablePath);
+
+            string workingDirectory =
+                ResolveWorkingDirectory(
+                    _options.WorkingDirectory);
+
+            if (!File.Exists(executablePath))
+            {
+                throw new FileNotFoundException(
+                    "Engine executable was not found.",
+                    executablePath);
+            }
+
+            if (!Directory.Exists(workingDirectory))
+            {
+                throw new DirectoryNotFoundException(
+                    $"Engine working directory was not found: {workingDirectory}");
+            }
+
+            var startInfo =
+                new ProcessStartInfo
+                {
+                    FileName =
+                        executablePath,
+
+                    Arguments =
+                        _options.Arguments,
+
+                    UseShellExecute =
+                        false,
+
+                    CreateNoWindow =
+                        true,
+
+                    RedirectStandardOutput =
+                        true,
+
+                    RedirectStandardError =
+                        true,
+
+                    WorkingDirectory =
+                        workingDirectory
+                };
+
+            var process =
+                new Process
+                {
+                    StartInfo = startInfo,
+                    EnableRaisingEvents = true
+                };
+
+            process.OutputDataReceived +=
+                Process_OutputDataReceived;
+
+            process.ErrorDataReceived +=
+                Process_ErrorDataReceived;
+
+            process.Exited +=
+                Process_Exited;
+
+            if (!process.Start())
+            {
+                process.Dispose();
+
+                throw new InvalidOperationException(
+                    "Engine process did not start.");
+            }
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            _process = process;
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"Started; mode={_options.Mode}; pid={process.Id}; file={executablePath}; arguments={_options.Arguments}; workingDirectory={workingDirectory}");
+
+            return "ENGINE_STARTED";
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProcessStart",
+                exception: exception);
+
+            throw;
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async Task<string> StopAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (!IsProcessRunningUnsafe())
+            {
+                return "ENGINE_ALREADY_STOPPED";
+            }
+
+            Process process =
+                _process!;
+
+            int processId =
+                process.Id;
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"StopRequested; pid={processId}");
+
+            bool exitedGracefully = false;
+
+            try
+            {
+                if (process.CloseMainWindow())
+                {
+                    exitedGracefully =
+                        await WaitForExitAsync(
+                            process,
+                            timeout:
+                                TimeSpan.FromSeconds(
+                                    _options.StopTimeoutSeconds),
+                            cancellationToken);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                exitedGracefully = true;
+            }
+
+            if (!exitedGracefully &&
+                !process.HasExited)
+            {
+                _logger.Info(
+                    stage: "EngineProcess",
+                    result:
+                        $"ForceKill; pid={processId}");
+
+                process.Kill(
+                    entireProcessTree: true);
+
+                bool exitedAfterKill =
+                    await WaitForExitAsync(
+                        process,
+                        timeout:
+                            TimeSpan.FromSeconds(
+                                _options.KillTimeoutSeconds),
+                        cancellationToken);
+
+                if (!exitedAfterKill &&
+                    !process.HasExited)
+                {
+                    throw new TimeoutException(
+                        $"Engine process {processId} did not exit after Kill.");
+                }
+            }
+
+            CleanupProcessUnsafe();
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"Stopped; pid={processId}");
+
+            return "ENGINE_STOPPED";
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProcessStop",
+                exception: exception);
+
+            throw;
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async Task<string> GetStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            return IsProcessRunningUnsafe()
+                ? "ENGINE_RUNNING"
+                : "ENGINE_STOPPED";
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async Task<string> GetDetailsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (!IsProcessRunningUnsafe())
+            {
+                return
+                    $"ENGINE_STOPPED PID=0 MODE={_options.Mode}";
+            }
+
+            return
+                $"ENGINE_RUNNING PID={_process!.Id} MODE={_options.Mode}";
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await StopAsync();
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProcessDispose",
+                exception: exception);
+        }
+
+        await _sync.WaitAsync();
+
+        try
+        {
+            CleanupProcessUnsafe();
+            _disposed = true;
+        }
+        finally
+        {
+            _sync.Release();
+            _sync.Dispose();
+        }
+    }
+
+    private void Process_Exited(
+        object? sender,
+        EventArgs e)
+    {
+        if (sender is not Process process)
+        {
+            return;
+        }
+
+        int processId;
+
+        try
+        {
+            processId = process.Id;
+        }
+        catch
+        {
+            processId = 0;
+        }
+
+        int? exitCode = null;
+
+        try
+        {
+            exitCode = process.ExitCode;
+        }
+        catch
+        {
+            // Код завершения может быть уже недоступен.
+        }
+
+        _logger.Info(
+            stage: "EngineProcess",
+            result:
+                $"Exited; pid={processId}; exitCode={exitCode?.ToString() ?? "unknown"}");
+    }
+
+    private void Process_OutputDataReceived(
+        object sender,
+        DataReceivedEventArgs e)
+    {
+        // Поток читается, чтобы буфер процесса не переполнился.
+    }
+
+    private void Process_ErrorDataReceived(
+        object sender,
+        DataReceivedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Data))
+        {
+            return;
+        }
+
+        _logger.Info(
+            stage: "EngineProcessStderr",
+            result: e.Data);
+    }
+
+    private bool IsProcessRunningUnsafe()
+    {
+        return
+            _process is not null &&
+            !_process.HasExited;
+    }
+
+    private void CleanupExitedProcessUnsafe()
+    {
+        if (_process is null)
+        {
+            return;
+        }
+
+        if (!_process.HasExited)
+        {
+            return;
+        }
+
+        CleanupProcessUnsafe();
+    }
+
+    private void CleanupProcessUnsafe()
+    {
+        if (_process is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _process.OutputDataReceived -=
+                Process_OutputDataReceived;
+
+            _process.ErrorDataReceived -=
+                Process_ErrorDataReceived;
+
+            _process.Exited -=
+                Process_Exited;
+
+            _process.Dispose();
+        }
+        finally
+        {
+            _process = null;
+        }
+    }
+
+    private static string ResolveExecutablePath(
+        string configuredPath)
+    {
+        string expanded =
+            Environment.ExpandEnvironmentVariables(
+                configuredPath.Trim());
+
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(
+                expanded);
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                expanded));
+    }
+
+    private static string ResolveWorkingDirectory(
+        string configuredPath)
+    {
+        string expanded =
+            Environment.ExpandEnvironmentVariables(
+                configuredPath.Trim());
+
+        if (string.IsNullOrWhiteSpace(expanded) ||
+            expanded == ".")
+        {
+            return AppContext.BaseDirectory;
+        }
+
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(
+                expanded);
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                expanded));
+    }
+
+    private static void ValidateOptions(
+        EngineOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(
+                options.Mode))
+        {
+            throw new InvalidOperationException(
+                "Engine:Mode cannot be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                options.ExecutablePath))
+        {
+            throw new InvalidOperationException(
+                "Engine:ExecutablePath cannot be empty.");
+        }
+
+        if (options.StopTimeoutSeconds < 1 ||
+            options.StopTimeoutSeconds > 60)
+        {
+            throw new InvalidOperationException(
+                "Engine:StopTimeoutSeconds must be between 1 and 60.");
+        }
+
+        if (options.KillTimeoutSeconds < 1 ||
+            options.KillTimeoutSeconds > 60)
+        {
+            throw new InvalidOperationException(
+                "Engine:KillTimeoutSeconds must be between 1 and 60.");
+        }
+    }
+
+    private static async Task<bool> WaitForExitAsync(
+        Process process,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        if (process.HasExited)
+        {
+            return true;
+        }
+
+        using CancellationTokenSource timeoutCts =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+
+        timeoutCts.CancelAfter(
+            timeout);
+
+        try
+        {
+            await process.WaitForExitAsync(
+                timeoutCts.Token);
+
+            return true;
+        }
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            return process.HasExited;
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(
+            _disposed,
+            this);
+    }
+}
+
+
+===== FILE: .\Chillistica_game.Service\NamedPipeServer.cs =====
+
+using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
+
+namespace Chillistica_game.Service;
+
+public sealed class NamedPipeServer : BackgroundService
+{
+    public const string PipeName =
+        "Chillistica_game.Control";
+
+    public const string ProtocolVersion =
+        "1";
+
+    private readonly ServiceLogger _logger;
+    private readonly EngineProcessManager _engineProcessManager;
+
+    public NamedPipeServer(
+        ServiceLogger logger,
+        EngineProcessManager engineProcessManager)
+    {
+        _logger = logger;
+        _engineProcessManager = engineProcessManager;
+    }
+
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
+    {
+        _logger.Info(
+            stage: "NamedPipe",
+            result: $"Listening; pipe={PipeName}");
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await HandleSingleConnectionAsync(
+                    stoppingToken);
+            }
+            catch (OperationCanceledException)
+                when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                _logger.Error(
+                    stage: "NamedPipe",
+                    exception: exception);
+
+                try
+                {
+                    await Task.Delay(
+                        TimeSpan.FromSeconds(1),
+                        stoppingToken);
+                }
+                catch (OperationCanceledException)
+                    when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
+        }
+
+        _logger.Info(
+            stage: "NamedPipe",
+            result: "Stopped");
+    }
+
+    private async Task HandleSingleConnectionAsync(
+        CancellationToken stoppingToken)
+    {
+        PipeSecurity pipeSecurity =
+            CreatePipeSecurity();
+
+        await using NamedPipeServerStream pipe =
+            NamedPipeServerStreamAcl.Create(
+                pipeName: PipeName,
+                direction: PipeDirection.InOut,
+                maxNumberOfServerInstances: 1,
+                transmissionMode: PipeTransmissionMode.Byte,
+                options: PipeOptions.Asynchronous,
+                inBufferSize: 4096,
+                outBufferSize: 4096,
+                pipeSecurity: pipeSecurity);
+
+        await pipe.WaitForConnectionAsync(
+            stoppingToken);
+
+        _logger.Info(
+            stage: "NamedPipeConnection",
+            result: "ClientConnected");
+
+        using var reader =
+            new StreamReader(
+                pipe,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: false,
+                bufferSize: 1024,
+                leaveOpen: true);
+
+        using var writer =
+            new StreamWriter(
+                pipe,
+                new UTF8Encoding(
+                    encoderShouldEmitUTF8Identifier: false),
+                bufferSize: 1024,
+                leaveOpen: true)
+            {
+                AutoFlush = true
+            };
+
+        string? command =
+            await reader.ReadLineAsync(
+                stoppingToken);
+
+        string response =
+            await HandleCommandAsync(
+                command,
+                stoppingToken);
+
+        await writer.WriteLineAsync(
+            response);
+
+        _logger.Info(
+            stage: "NamedPipeCommand",
+            result:
+                $"Command={command ?? "<null>"}; Response={response}");
+    }
+
+    private static PipeSecurity CreatePipeSecurity()
+    {
+        var security =
+            new PipeSecurity();
+
+        var localSystemSid =
+            new SecurityIdentifier(
+                WellKnownSidType.LocalSystemSid,
+                domainSid: null);
+
+        var localUsersSid =
+            new SecurityIdentifier(
+                WellKnownSidType.BuiltinUsersSid,
+                domainSid: null);
+
+        security.AddAccessRule(
+            new PipeAccessRule(
+                localSystemSid,
+                PipeAccessRights.FullControl,
+                AccessControlType.Allow));
+
+        security.AddAccessRule(
+            new PipeAccessRule(
+                localUsersSid,
+                PipeAccessRights.ReadWrite,
+                AccessControlType.Allow));
+
+        security.SetOwner(
+            localSystemSid);
+
+        return security;
+    }
+
+    private async Task<string> HandleCommandAsync(
+        string? command,
+        CancellationToken cancellationToken)
+    {
+        string normalized =
+            command?
+                .Trim()
+                .ToUpperInvariant()
+            ?? string.Empty;
+
+        return normalized switch
+        {
+            "PING" =>
+                "PONG",
+
+            "STATUS" =>
+                "SERVICE_RUNNING",
+
+            "PROTOCOL_VERSION" =>
+                ProtocolVersion,
+
+            "ENGINE_STATUS" =>
+                await _engineProcessManager.GetStatusAsync(
+                    cancellationToken),
+
+            "ENGINE_DETAILS" =>
+                await _engineProcessManager.GetDetailsAsync(
+                    cancellationToken),
+
+            "START_ENGINE" =>
+                await HandleStartEngineAsync(
+                    cancellationToken),
+
+            "STOP_ENGINE" =>
+                await HandleStopEngineAsync(
+                    cancellationToken),
+
+            "" =>
+                "ERROR EMPTY_COMMAND",
+
+            _ =>
+                "ERROR UNKNOWN_COMMAND"
+        };
+    }
+
+    private async Task<string> HandleStartEngineAsync(
+        CancellationToken cancellationToken)
+    {
+        string response =
+            await _engineProcessManager.StartAsync(
+                cancellationToken);
+
+        _logger.Info(
+            stage: "EngineProcessCommand",
+            result: response);
+
+        return response;
+    }
+
+    private async Task<string> HandleStopEngineAsync(
+        CancellationToken cancellationToken)
+    {
+        string response =
+            await _engineProcessManager.StopAsync(
+                cancellationToken);
+
+        _logger.Info(
+            stage: "EngineProcessCommand",
+            result: response);
+
+        return response;
+    }
+}
+
+
+===== FILE: .\Chillistica_game.App\Services\NamedPipeClientService.cs =====
+
+using System.IO;
+using System.IO.Pipes;
+using System.Text;
+
+namespace Chillistica_game.App.Services;
+
+public sealed class NamedPipeClientService
+{
+    public const string PipeName =
+        "Chillistica_game.Control";
+
+    public const string SupportedProtocolVersion =
+        "1";
+
+    public async Task<string> SendCommandAsync(
+        string command,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new ArgumentException(
+                "Command cannot be empty.",
+                nameof(command));
+        }
+
+        using CancellationTokenSource timeoutCts =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+
+        timeoutCts.CancelAfter(timeout);
+
+        await using var pipe =
+            new NamedPipeClientStream(
+                serverName: ".",
+                pipeName: PipeName,
+                direction: PipeDirection.InOut,
+                options: PipeOptions.Asynchronous);
+
+        await pipe.ConnectAsync(
+            timeoutCts.Token);
+
+        using var writer =
+            new StreamWriter(
+                pipe,
+                new UTF8Encoding(
+                    encoderShouldEmitUTF8Identifier: false),
+                bufferSize: 1024,
+                leaveOpen: true)
+            {
+                AutoFlush = true
+            };
+
+        using var reader =
+            new StreamReader(
+                pipe,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: false,
+                bufferSize: 1024,
+                leaveOpen: true);
+
+        await writer.WriteLineAsync(
+            command.Trim());
+
+        string? response =
+            await reader.ReadLineAsync(
+                timeoutCts.Token);
+
+        return response ??
+            "ERROR EMPTY_RESPONSE";
+    }
+
+    public async Task<bool> IsServiceAvailableAsync(
+        CancellationToken cancellationToken = default)
+    {
+        string response =
+            await SendCommandSafelyAsync(
+                command: "PING",
+                unavailableResponse: "SERVICE_UNAVAILABLE",
+                cancellationToken: cancellationToken);
+
+        return string.Equals(
+            response,
+            "PONG",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    public Task<string> GetServiceStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "STATUS",
+            unavailableResponse: "SERVICE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> GetProtocolVersionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "PROTOCOL_VERSION",
+            unavailableResponse: "PROTOCOL_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> GetEngineStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "ENGINE_STATUS",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> StartEngineAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "START_ENGINE",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> StopEngineAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "STOP_ENGINE",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    private async Task<string> SendCommandSafelyAsync(
+        string command,
+        string unavailableResponse,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await SendCommandAsync(
+                command: command,
+                timeout: TimeSpan.FromSeconds(3),
+                cancellationToken: cancellationToken);
+        }
+        catch (
+            Exception exception)
+            when (
+                exception is TimeoutException or
+                OperationCanceledException or
+                IOException or
+                UnauthorizedAccessException)
+        {
+            return unavailableResponse;
+        }
+    }
+}
+
+
