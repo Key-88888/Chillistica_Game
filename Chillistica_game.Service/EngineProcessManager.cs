@@ -297,10 +297,15 @@ public sealed class EngineProcessManager :
                 : _options.WorkingDirectory.Trim();
 
         return
+            $"PROFILE_ID={_options.ProfileId}; " +
+            $"DISPLAY_NAME={_options.DisplayName}; " +
+            $"SOURCE={_options.ConfigurationSource}; " +
             $"MODE={_options.Mode}; " +
             $"EXECUTABLE={executableName}; " +
             $"ARGUMENTS={_options.Arguments}; " +
             $"WORKDIR={workingDirectory}; " +
+            $"REQUIRES_ADMIN={_options.RequiresAdmin}; " +
+            $"USES_WINDIVERT={_options.UsesWinDivert}; " +
             $"STOP_TIMEOUT={_options.StopTimeoutSeconds}; " +
             $"KILL_TIMEOUT={_options.KillTimeoutSeconds}";
     }
@@ -321,6 +326,15 @@ public sealed class EngineProcessManager :
         var config =
             new EngineConfigResponse
             {
+                ProfileId =
+                    _options.ProfileId,
+
+                DisplayName =
+                    _options.DisplayName,
+
+                ConfigurationSource =
+                    _options.ConfigurationSource,
+
                 Mode =
                     _options.Mode,
 
@@ -332,6 +346,12 @@ public sealed class EngineProcessManager :
 
                 WorkingDirectory =
                     workingDirectory,
+
+                RequiresAdmin =
+                    _options.RequiresAdmin,
+
+                UsesWinDivert =
+                    _options.UsesWinDivert,
 
                 StopTimeoutSeconds =
                     _options.StopTimeoutSeconds,
@@ -598,6 +618,15 @@ public sealed class EngineProcessManager :
 
     private sealed class EngineConfigResponse
     {
+        public string ProfileId { get; init; } =
+            string.Empty;
+
+        public string DisplayName { get; init; } =
+            string.Empty;
+
+        public string ConfigurationSource { get; init; } =
+            string.Empty;
+
         public string Mode { get; init; } =
             string.Empty;
 
@@ -610,10 +639,15 @@ public sealed class EngineProcessManager :
         public string WorkingDirectory { get; init; } =
             string.Empty;
 
+        public bool RequiresAdmin { get; init; }
+
+        public bool UsesWinDivert { get; init; }
+
         public int StopTimeoutSeconds { get; init; }
 
         public int KillTimeoutSeconds { get; init; }
     }
 }
+
 
 

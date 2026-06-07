@@ -36,17 +36,21 @@ public static class EngineProfileLoader
                 profile,
                 profilePath);
 
-            return ConvertToOptions(
+            return ConvertProfileToOptions(
                 profile);
         }
         catch
         {
-            EngineOptions fallback =
+            EngineOptions configured =
                 configuration
                     .GetSection(
                         EngineOptions.SectionName)
                     .Get<EngineOptions>()
                 ?? new EngineOptions();
+
+            EngineOptions fallback =
+                ConvertFallbackToOptions(
+                    configured);
 
             ValidateOptions(
                 fallback);
@@ -85,12 +89,21 @@ public static class EngineProfileLoader
                 $"Engine profile could not be deserialized: {profilePath}");
     }
 
-    private static EngineOptions ConvertToOptions(
+    private static EngineOptions ConvertProfileToOptions(
         EngineProfile profile)
     {
         var options =
             new EngineOptions
             {
+                ProfileId =
+                    profile.ProfileId.Trim(),
+
+                DisplayName =
+                    profile.DisplayName.Trim(),
+
+                ConfigurationSource =
+                    "Profile",
+
                 Mode =
                     profile.Mode.Trim(),
 
@@ -106,6 +119,12 @@ public static class EngineProfileLoader
                         ? "."
                         : profile.WorkingDirectory.Trim(),
 
+                RequiresAdmin =
+                    profile.RequiresAdmin,
+
+                UsesWinDivert =
+                    profile.UsesWinDivert,
+
                 StopTimeoutSeconds =
                     profile.StopTimeoutSeconds,
 
@@ -117,6 +136,46 @@ public static class EngineProfileLoader
             options);
 
         return options;
+    }
+
+    private static EngineOptions ConvertFallbackToOptions(
+        EngineOptions configured)
+    {
+        return new EngineOptions
+        {
+            ProfileId =
+                "appsettings-fallback",
+
+            DisplayName =
+                "Appsettings fallback",
+
+            ConfigurationSource =
+                "AppSettings",
+
+            Mode =
+                configured.Mode,
+
+            ExecutablePath =
+                configured.ExecutablePath,
+
+            Arguments =
+                configured.Arguments,
+
+            WorkingDirectory =
+                configured.WorkingDirectory,
+
+            RequiresAdmin =
+                configured.RequiresAdmin,
+
+            UsesWinDivert =
+                configured.UsesWinDivert,
+
+            StopTimeoutSeconds =
+                configured.StopTimeoutSeconds,
+
+            KillTimeoutSeconds =
+                configured.KillTimeoutSeconds
+        };
     }
 
     private static void ValidateProfile(
@@ -176,6 +235,27 @@ public static class EngineProfileLoader
     private static void ValidateOptions(
         EngineOptions options)
     {
+        if (string.IsNullOrWhiteSpace(
+                options.ProfileId))
+        {
+            throw new InvalidOperationException(
+                "Engine ProfileId cannot be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                options.DisplayName))
+        {
+            throw new InvalidOperationException(
+                "Engine DisplayName cannot be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                options.ConfigurationSource))
+        {
+            throw new InvalidOperationException(
+                "Engine ConfigurationSource cannot be empty.");
+        }
+
         if (string.IsNullOrWhiteSpace(
                 options.Mode))
         {

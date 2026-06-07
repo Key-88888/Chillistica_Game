@@ -941,6 +941,15 @@ public partial class MainWindow : Window
             JsonElement root =
                 document.RootElement;
 
+            string profileId =
+                GetJsonString(root, "ProfileId");
+
+            string displayName =
+                GetJsonString(root, "DisplayName");
+
+            string configurationSource =
+                GetJsonString(root, "ConfigurationSource");
+
             string mode =
                 GetJsonString(root, "Mode");
 
@@ -953,6 +962,12 @@ public partial class MainWindow : Window
             string workingDirectory =
                 GetJsonString(root, "WorkingDirectory");
 
+            string requiresAdmin =
+                GetJsonValue(root, "RequiresAdmin");
+
+            string usesWinDivert =
+                GetJsonValue(root, "UsesWinDivert");
+
             string stopTimeoutSeconds =
                 GetJsonValue(root, "StopTimeoutSeconds");
 
@@ -960,6 +975,18 @@ public partial class MainWindow : Window
                 GetJsonValue(root, "KillTimeoutSeconds");
 
             StringBuilder report = new();
+
+            report.AppendLine("ProfileId:");
+            report.AppendLine(profileId);
+            report.AppendLine();
+
+            report.AppendLine("DisplayName:");
+            report.AppendLine(displayName);
+            report.AppendLine();
+
+            report.AppendLine("ConfigurationSource:");
+            report.AppendLine(configurationSource);
+            report.AppendLine();
 
             report.AppendLine("Mode:");
             report.AppendLine(mode);
@@ -977,6 +1004,14 @@ public partial class MainWindow : Window
             report.AppendLine(workingDirectory);
             report.AppendLine();
 
+            report.AppendLine("RequiresAdmin:");
+            report.AppendLine(requiresAdmin);
+            report.AppendLine();
+
+            report.AppendLine("UsesWinDivert:");
+            report.AppendLine(usesWinDivert);
+            report.AppendLine();
+
             report.AppendLine("StopTimeoutSeconds:");
             report.AppendLine(stopTimeoutSeconds);
             report.AppendLine();
@@ -990,7 +1025,7 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "EngineConfig",
                 result:
-                    $"Loaded; mode={mode}; executable={executable}");
+                    $"Loaded; profileId={profileId}; source={configurationSource}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}");
 
             MessageBox.Show(
                 report.ToString(),
@@ -1228,6 +1263,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 

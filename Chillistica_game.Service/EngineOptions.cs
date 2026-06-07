@@ -5,6 +5,15 @@ public sealed class EngineOptions
     public const string SectionName =
         "Engine";
 
+    public string ProfileId { get; init; } =
+        "appsettings-fallback";
+
+    public string DisplayName { get; init; } =
+        "Appsettings fallback";
+
+    public string ConfigurationSource { get; init; } =
+        "AppSettings";
+
     public string Mode { get; init; } =
         "Test";
 
@@ -16,6 +25,10 @@ public sealed class EngineOptions
 
     public string WorkingDirectory { get; init; } =
         ".";
+
+    public bool RequiresAdmin { get; init; }
+
+    public bool UsesWinDivert { get; init; }
 
     public int StopTimeoutSeconds { get; init; } =
         2;
