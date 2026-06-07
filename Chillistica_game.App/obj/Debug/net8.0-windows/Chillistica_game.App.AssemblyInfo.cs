@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Chillistica_game.App")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+61e7fe171e3731fcb389228c387b3fb9df32b392")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3957710d158b98c1dd81126384d31636dd070418")]
 [assembly: System.Reflection.AssemblyProductAttribute("Chillistica_game.App")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Chillistica_game.App")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

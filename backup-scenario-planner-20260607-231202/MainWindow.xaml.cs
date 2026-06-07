@@ -8,9 +8,6 @@ namespace Chillistica_game.App;
 public partial class MainWindow : Window
 {
     private readonly DiagnosticsService _diagnosticsService = new();
-    private readonly ScenarioPlanner _scenarioPlanner = new();
-
-    private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
 
     private bool _protectionEnabled;
     private bool _diagnosticsRunning;
@@ -119,9 +116,6 @@ public partial class MainWindow : Window
                 results.Add(proxyResult);
             }
 
-            _lastDiagnosticsResults.Clear();
-            _lastDiagnosticsResults.AddRange(results);
-
             ShowDiagnosticsResults(results);
         }
         catch (Exception ex)
@@ -149,31 +143,18 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        if (_lastDiagnosticsResults.Count == 0)
-        {
-            MessageBox.Show(
-                "Сначала запусти диагностику.\n\nАвтоподбор использует последние результаты проверок.",
-                "Chillistica_game",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            return;
-        }
-
-        IReadOnlyList<ScenarioDecision> decisions =
-            _scenarioPlanner.BuildDecisions(
-                _lastDiagnosticsResults);
-
         EventText.Text =
-            $"Автоподбор: создано сценариев {decisions.Count}";
+            "Автоматический подбор будет добавлен после подключения движка";
 
-        var scenarioWindow =
-            new ScenarioWindow(decisions)
-            {
-                Owner = this
-            };
-
-        scenarioWindow.ShowDialog();
+        MessageBox.Show(
+            "Выбранные профили:\n" +
+            $"YouTube: {ProfileState(YouTubeProfile.IsChecked)}\n" +
+            $"Discord: {ProfileState(DiscordProfile.IsChecked)}\n" +
+            $"Roblox: {ProfileState(RobloxProfile.IsChecked)}\n" +
+            $"Fortnite: {ProfileState(FortniteProfile.IsChecked)}",
+            "Профили приложений",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private List<DiagnosticsTarget> BuildDiagnosticsTargets()
@@ -305,4 +286,5 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 

@@ -19,3 +19,5 @@ C:\Users\lacob\Chillistica_game\Chillistica_game.App\obj\Debug\net8.0-windows\Ch
 C:\Users\lacob\Chillistica_game\Chillistica_game.App\obj\Debug\net8.0-windows\ref\Chillistica_game.App.dll
 C:\Users\lacob\Chillistica_game\Chillistica_game.App\obj\Debug\net8.0-windows\DiagnosticsWindow.baml
 C:\Users\lacob\Chillistica_game\Chillistica_game.App\obj\Debug\net8.0-windows\DiagnosticsWindow.g.cs
+C:\Users\lacob\Chillistica_game\Chillistica_game.App\obj\Debug\net8.0-windows\ScenarioWindow.baml
+C:\Users\lacob\Chillistica_game\Chillistica_game.App\obj\Debug\net8.0-windows\ScenarioWindow.g.cs

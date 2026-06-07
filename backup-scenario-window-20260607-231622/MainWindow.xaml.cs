@@ -164,16 +164,22 @@ public partial class MainWindow : Window
             _scenarioPlanner.BuildDecisions(
                 _lastDiagnosticsResults);
 
+        StringBuilder report = new();
+
+        foreach (ScenarioDecision decision in decisions)
+        {
+            report.AppendLine(decision.ToDisplayText());
+            report.AppendLine();
+        }
+
         EventText.Text =
             $"Автоподбор: создано сценариев {decisions.Count}";
 
-        var scenarioWindow =
-            new ScenarioWindow(decisions)
-            {
-                Owner = this
-            };
-
-        scenarioWindow.ShowDialog();
+        MessageBox.Show(
+            report.ToString().Trim(),
+            "Автоматический подбор сценария",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private List<DiagnosticsTarget> BuildDiagnosticsTargets()
@@ -305,4 +311,3 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
