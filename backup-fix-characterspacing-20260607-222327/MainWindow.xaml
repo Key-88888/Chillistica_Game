@@ -15,9 +15,9 @@
         <SolidColorBrush x:Key="PanelBackground" Color="#151311"/>
         <SolidColorBrush x:Key="PanelSecondary" Color="#1B1815"/>
         <SolidColorBrush x:Key="BorderBrushPremium" Color="#302A23"/>
-        <SolidColorBrush x:Key="GoldBrush" Color="#3B6A52"/>
-        <SolidColorBrush x:Key="GoldHoverBrush" Color="#477B61"/>
-        <SolidColorBrush x:Key="GoldPressedBrush" Color="#315843"/>
+        <SolidColorBrush x:Key="GoldBrush" Color="#C6A15B"/>
+        <SolidColorBrush x:Key="GoldHoverBrush" Color="#D5B36D"/>
+        <SolidColorBrush x:Key="GoldPressedBrush" Color="#AA8747"/>
         <SolidColorBrush x:Key="MainTextBrush" Color="#F3EDE3"/>
         <SolidColorBrush x:Key="SecondaryTextBrush" Color="#999187"/>
         <SolidColorBrush x:Key="MutedTextBrush" Color="#716A62"/>
@@ -40,7 +40,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="14">
+                                CornerRadius="8">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
                         </Border>
@@ -70,7 +70,7 @@
         <Style x:Key="PrimaryButtonStyle"
                TargetType="Button"
                BasedOn="{StaticResource PremiumButtonStyle}">
-            <Setter Property="Foreground" Value="#07140E"/>
+            <Setter Property="Foreground" Value="#17120A"/>
             <Setter Property="Background" Value="{StaticResource GoldBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource GoldBrush}"/>
 
@@ -81,7 +81,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="14">
+                                CornerRadius="8">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
                         </Border>
@@ -136,7 +136,8 @@
                     <TextBlock Text="CHILLISTICA"
                                Foreground="{StaticResource GoldBrush}"
                                FontSize="13"
-                               FontWeight="SemiBold"/>
+                               FontWeight="SemiBold"
+                               CharacterSpacing="240"/>
 
                     <TextBlock Text="Chillistica_game"
                                Foreground="{StaticResource MainTextBrush}"
@@ -168,7 +169,8 @@
                             <TextBlock Text="СОСТОЯНИЕ"
                                        Foreground="{StaticResource GoldBrush}"
                                        FontSize="12"
-                                       FontWeight="SemiBold"/>
+                                       FontWeight="SemiBold"
+                                       CharacterSpacing="160"/>
 
                             <StackPanel Orientation="Horizontal"
                                         Margin="0,16,0,6">
@@ -229,7 +231,8 @@
                             <TextBlock Text="ПРОФИЛИ"
                                        Foreground="{StaticResource GoldBrush}"
                                        FontSize="12"
-                                       FontWeight="SemiBold"/>
+                                       FontWeight="SemiBold"
+                                       CharacterSpacing="160"/>
 
                             <TextBlock Text="Приложения"
                                        Foreground="{StaticResource MainTextBrush}"
@@ -308,8 +311,3 @@
         </Grid>
     </Grid>
 </Window>
-
-
-
-
-

@@ -15,9 +15,9 @@
         <SolidColorBrush x:Key="PanelBackground" Color="#151311"/>
         <SolidColorBrush x:Key="PanelSecondary" Color="#1B1815"/>
         <SolidColorBrush x:Key="BorderBrushPremium" Color="#302A23"/>
-        <SolidColorBrush x:Key="GoldBrush" Color="#3B6A52"/>
-        <SolidColorBrush x:Key="GoldHoverBrush" Color="#477B61"/>
-        <SolidColorBrush x:Key="GoldPressedBrush" Color="#315843"/>
+        <SolidColorBrush x:Key="GoldBrush" Color="#4FB286"/>
+        <SolidColorBrush x:Key="GoldHoverBrush" Color="#67C49A"/>
+        <SolidColorBrush x:Key="GoldPressedBrush" Color="#3C8F6B"/>
         <SolidColorBrush x:Key="MainTextBrush" Color="#F3EDE3"/>
         <SolidColorBrush x:Key="SecondaryTextBrush" Color="#999187"/>
         <SolidColorBrush x:Key="MutedTextBrush" Color="#716A62"/>
@@ -308,8 +308,5 @@
         </Grid>
     </Grid>
 </Window>
-
-
-
 
 
