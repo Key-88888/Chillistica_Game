@@ -93,5 +93,27 @@ public sealed class NamedPipeClientService
             return false;
         }
     }
+
+    public async Task<string> GetServiceStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await SendCommandAsync(
+                command: "STATUS",
+                timeout: TimeSpan.FromSeconds(2),
+                cancellationToken: cancellationToken);
+        }
+        catch (
+            Exception exception)
+            when (
+                exception is TimeoutException or
+                OperationCanceledException or
+                IOException)
+        {
+            return "SERVICE_UNAVAILABLE";
+        }
+    }
 }
+
 

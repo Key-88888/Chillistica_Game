@@ -68,6 +68,33 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task CheckServiceStatusAsync()
+    {
+        string status =
+            await _pipeClient.GetServiceStatusAsync();
+
+        if (status.Equals(
+                "SERVICE_UNAVAILABLE",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            EventText.Text =
+                "Служба управления недоступна";
+
+            _logger.Info(
+                stage: "ServiceStatus",
+                result: "Unavailable");
+
+            return;
+        }
+
+        EventText.Text =
+            $"Статус службы: {status}";
+
+        _logger.Info(
+            stage: "ServiceStatus",
+            result: status);
+    }
+
     private async void ToggleProtectionButton_Click(
         object sender,
         RoutedEventArgs e)
@@ -628,7 +655,7 @@ public partial class MainWindow : Window
         FortniteScenarioText.Text = defaultText;
     }
 
-    private void Window_KeyDown(
+    private async void Window_KeyDown(
         object sender,
         KeyEventArgs e)
     {
@@ -657,6 +684,14 @@ public partial class MainWindow : Window
             DetectProcessesButton_Click(
                 sender,
                 new RoutedEventArgs());
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F8)
+        {
+            await CheckServiceStatusAsync();
 
             e.Handled = true;
             return;
@@ -792,6 +827,8 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
+
 
 
 
