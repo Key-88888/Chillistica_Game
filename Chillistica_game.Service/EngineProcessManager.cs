@@ -282,6 +282,28 @@ public sealed class EngineProcessManager :
         }
     }
 
+    public string GetConfig()
+    {
+        string executableName =
+            Path.GetFileName(
+                Environment.ExpandEnvironmentVariables(
+                    _options.ExecutablePath));
+
+        string workingDirectory =
+            string.IsNullOrWhiteSpace(
+                _options.WorkingDirectory)
+                ? "."
+                : _options.WorkingDirectory.Trim();
+
+        return
+            $"MODE={_options.Mode}; " +
+            $"EXECUTABLE={executableName}; " +
+            $"ARGUMENTS={_options.Arguments}; " +
+            $"WORKDIR={workingDirectory}; " +
+            $"STOP_TIMEOUT={_options.StopTimeoutSeconds}; " +
+            $"KILL_TIMEOUT={_options.KillTimeoutSeconds}";
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -534,3 +556,4 @@ public sealed class EngineProcessManager :
             this);
     }
 }
+
