@@ -13,6 +13,7 @@ public partial class MainWindow : Window
     private readonly ProcessDetectionService _processDetectionService = new();
     private readonly SettingsService _settingsService = new();
     private readonly AppLogger _logger = new();
+    private readonly NamedPipeClientService _pipeClient = new();
 
     private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
     private readonly List<ScenarioDecision> _lastScenarioDecisions = new();
@@ -31,7 +32,40 @@ public partial class MainWindow : Window
         LoadSettings();
         AttachProfileChangeHandlers();
 
+        Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
+    }
+
+    private async void MainWindow_Loaded(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await CheckServiceAvailabilityAsync();
+    }
+
+    private async Task CheckServiceAvailabilityAsync()
+    {
+        bool serviceAvailable =
+            await _pipeClient.IsServiceAvailableAsync();
+
+        if (serviceAvailable)
+        {
+            EventText.Text =
+                "Служба управления доступна";
+
+            _logger.Info(
+                stage: "ServiceConnection",
+                result: "Available");
+        }
+        else
+        {
+            EventText.Text =
+                "Служба управления пока не запущена";
+
+            _logger.Info(
+                stage: "ServiceConnection",
+                result: "Unavailable");
+        }
     }
 
     private async void ToggleProtectionButton_Click(
@@ -758,6 +792,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
