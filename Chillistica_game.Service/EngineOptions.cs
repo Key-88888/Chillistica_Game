@@ -14,6 +14,9 @@ public sealed class EngineOptions
     public string ConfigurationSource { get; init; } =
         "AppSettings";
 
+    public string ConfigurationWarning { get; init; } =
+        string.Empty;
+
     public string Mode { get; init; } =
         "Test";
 

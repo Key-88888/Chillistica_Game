@@ -950,6 +950,9 @@ public partial class MainWindow : Window
             string configurationSource =
                 GetJsonString(root, "ConfigurationSource");
 
+            string configurationWarning =
+                GetJsonString(root, "ConfigurationWarning");
+
             string mode =
                 GetJsonString(root, "Mode");
 
@@ -986,6 +989,10 @@ public partial class MainWindow : Window
 
             report.AppendLine("ConfigurationSource:");
             report.AppendLine(configurationSource);
+            report.AppendLine();
+
+            report.AppendLine("ConfigurationWarning:");
+            report.AppendLine(string.IsNullOrWhiteSpace(configurationWarning) ? "<none>" : configurationWarning);
             report.AppendLine();
 
             report.AppendLine("Mode:");
@@ -1025,7 +1032,7 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "EngineConfig",
                 result:
-                    $"Loaded; profileId={profileId}; source={configurationSource}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}");
+                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}");
 
             MessageBox.Show(
                 report.ToString(),
@@ -1263,6 +1270,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 

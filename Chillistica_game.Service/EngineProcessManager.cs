@@ -300,6 +300,7 @@ public sealed class EngineProcessManager :
             $"PROFILE_ID={_options.ProfileId}; " +
             $"DISPLAY_NAME={_options.DisplayName}; " +
             $"SOURCE={_options.ConfigurationSource}; " +
+            $"WARNING={_options.ConfigurationWarning}; " +
             $"MODE={_options.Mode}; " +
             $"EXECUTABLE={executableName}; " +
             $"ARGUMENTS={_options.Arguments}; " +
@@ -334,6 +335,9 @@ public sealed class EngineProcessManager :
 
                 ConfigurationSource =
                     _options.ConfigurationSource,
+
+                ConfigurationWarning =
+                    _options.ConfigurationWarning,
 
                 Mode =
                     _options.Mode,
@@ -627,6 +631,9 @@ public sealed class EngineProcessManager :
         public string ConfigurationSource { get; init; } =
             string.Empty;
 
+        public string ConfigurationWarning { get; init; } =
+            string.Empty;
+
         public string Mode { get; init; } =
             string.Empty;
 
@@ -648,6 +655,7 @@ public sealed class EngineProcessManager :
         public int KillTimeoutSeconds { get; init; }
     }
 }
+
 
 
 

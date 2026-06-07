@@ -43,7 +43,7 @@ public static class EngineProfileLoader
             return ConvertProfileToOptions(
                 profile);
         }
-        catch
+        catch (Exception exception)
         {
             EngineOptions configured =
                 configuration
@@ -54,7 +54,8 @@ public static class EngineProfileLoader
 
             EngineOptions fallback =
                 ConvertFallbackToOptions(
-                    configured);
+                    configured,
+                    exception);
 
             ValidateOptions(
                 fallback);
@@ -193,7 +194,8 @@ public static class EngineProfileLoader
     }
 
     private static EngineOptions ConvertFallbackToOptions(
-        EngineOptions configured)
+        EngineOptions configured,
+        Exception exception)
     {
         return new EngineOptions
         {
@@ -205,6 +207,9 @@ public static class EngineProfileLoader
 
             ConfigurationSource =
                 "AppSettings",
+
+            ConfigurationWarning =
+                $"ProfileFallback: {exception.GetType().Name}: {exception.Message}",
 
             Mode =
                 configured.Mode,
@@ -366,5 +371,7 @@ public static class EngineProfileLoader
         }
     }
 }
+
+
 
 
