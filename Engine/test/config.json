@@ -1,15 +1,14 @@
 ﻿{
-  "SchemaVersion": 1,
-  "ProfileId": "test-ping",
-  "DisplayName": "Test process lifecycle",
-  "Mode": "Test",
-  "ExecutablePath": "%SystemRoot%\\System32\\PING.EXE",
-  "Arguments": "127.0.0.1 -t",
-  "WorkingDirectory": ".",
-  "RequiresAdmin": false,
-  "UsesWinDivert": false,
-  "StopTimeoutSeconds": 2,
-  "KillTimeoutSeconds": 5
+    "SchemaVersion":  1,
+    "ProfileId":  "test-ping",
+    "DisplayName":  "Test process lifecycle",
+    "Mode":  "Test",
+    "ExecutablePath":  "%SystemRoot%\\System32\\PING.EXE",
+    "Arguments":  "127.0.0.1 -t",
+    "WorkingDirectory":  ".",
+    "RequiresAdmin":  false,
+    "UsesWinDivert":  false,
+    "StopTimeoutSeconds":  2,
+    "KillTimeoutSeconds":  5,
+    "AllowUnsafeStart":  false
 }
-
-

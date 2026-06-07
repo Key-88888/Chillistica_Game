@@ -1,13 +1,14 @@
 ﻿{
-  "SchemaVersion": 1,
-  "ProfileId": "winws2-youtube-https",
-  "DisplayName": "winws2 YouTube HTTPS only",
-  "Mode": "Winws2Preview",
-  "ExecutablePath": "Engine\\winws2\\bin\\winws.exe",
-  "Arguments": "--dry-run-placeholder --profile youtube-https",
-  "WorkingDirectory": "Engine\\winws2",
-  "RequiresAdmin": true,
-  "UsesWinDivert": true,
-  "StopTimeoutSeconds": 3,
-  "KillTimeoutSeconds": 5
+    "SchemaVersion":  1,
+    "ProfileId":  "winws2-youtube-https",
+    "DisplayName":  "winws2 YouTube HTTPS only",
+    "Mode":  "Winws2Preview",
+    "ExecutablePath":  "Engine\\winws2\\bin\\winws.exe",
+    "Arguments":  "--dry-run-placeholder --profile youtube-https",
+    "WorkingDirectory":  "Engine\\winws2",
+    "RequiresAdmin":  true,
+    "UsesWinDivert":  true,
+    "StopTimeoutSeconds":  3,
+    "KillTimeoutSeconds":  5,
+    "AllowUnsafeStart":  false
 }

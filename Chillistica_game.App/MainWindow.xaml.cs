@@ -387,6 +387,14 @@ public partial class MainWindow : Window
             string engineResponse =
                 await _pipeClient.StartEngineAsync();
 
+            if (engineResponse.Equals(
+                    "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Профиль требует явного разрешения на запуск. Запуск заблокирован службой.");
+            }
+
             bool engineAccepted =
                 engineResponse.Equals(
                     "ENGINE_STARTED",
@@ -971,6 +979,9 @@ public partial class MainWindow : Window
             string usesWinDivert =
                 GetJsonValue(root, "UsesWinDivert");
 
+            string allowUnsafeStart =
+                GetJsonValue(root, "AllowUnsafeStart");
+
             string stopTimeoutSeconds =
                 GetJsonValue(root, "StopTimeoutSeconds");
 
@@ -1019,6 +1030,10 @@ public partial class MainWindow : Window
             report.AppendLine(usesWinDivert);
             report.AppendLine();
 
+            report.AppendLine("AllowUnsafeStart:");
+            report.AppendLine(allowUnsafeStart);
+            report.AppendLine();
+
             report.AppendLine("StopTimeoutSeconds:");
             report.AppendLine(stopTimeoutSeconds);
             report.AppendLine();
@@ -1032,7 +1047,7 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "EngineConfig",
                 result:
-                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}");
+                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}; allowUnsafeStart={allowUnsafeStart}");
 
             MessageBox.Show(
                 report.ToString(),
@@ -1270,6 +1285,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 

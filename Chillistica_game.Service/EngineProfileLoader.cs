@@ -180,6 +180,9 @@ public static class EngineProfileLoader
                 UsesWinDivert =
                     profile.UsesWinDivert,
 
+                AllowUnsafeStart =
+                    profile.AllowUnsafeStart,
+
                 StopTimeoutSeconds =
                     profile.StopTimeoutSeconds,
 
@@ -228,6 +231,9 @@ public static class EngineProfileLoader
 
             UsesWinDivert =
                 configured.UsesWinDivert,
+
+            AllowUnsafeStart =
+                configured.AllowUnsafeStart,
 
             StopTimeoutSeconds =
                 configured.StopTimeoutSeconds,
@@ -371,6 +377,7 @@ public static class EngineProfileLoader
         }
     }
 }
+
 
 
 

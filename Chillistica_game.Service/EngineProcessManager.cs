@@ -43,6 +43,16 @@ public sealed class EngineProcessManager :
                 return "ENGINE_ALREADY_RUNNING";
             }
 
+            if (IsUnsafeProfileBlocked())
+            {
+                _logger.Info(
+                    stage: "EngineProcess",
+                    result:
+                        $"BlockedUnsafeProfile; profileId={_options.ProfileId}; requiresAdmin={_options.RequiresAdmin}; usesWinDivert={_options.UsesWinDivert}; allowUnsafeStart={_options.AllowUnsafeStart}");
+
+                return "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL";
+            }
+
             string executablePath =
                 ResolveExecutablePath(
                     _options.ExecutablePath);
@@ -307,6 +317,7 @@ public sealed class EngineProcessManager :
             $"WORKDIR={workingDirectory}; " +
             $"REQUIRES_ADMIN={_options.RequiresAdmin}; " +
             $"USES_WINDIVERT={_options.UsesWinDivert}; " +
+            $"ALLOW_UNSAFE_START={_options.AllowUnsafeStart}; " +
             $"STOP_TIMEOUT={_options.StopTimeoutSeconds}; " +
             $"KILL_TIMEOUT={_options.KillTimeoutSeconds}";
     }
@@ -356,6 +367,9 @@ public sealed class EngineProcessManager :
 
                 UsesWinDivert =
                     _options.UsesWinDivert,
+
+                AllowUnsafeStart =
+                    _options.AllowUnsafeStart,
 
                 StopTimeoutSeconds =
                     _options.StopTimeoutSeconds,
@@ -458,6 +472,16 @@ public sealed class EngineProcessManager :
             result: e.Data);
     }
 
+    private bool IsUnsafeProfileBlocked()
+    {
+        bool unsafeProfile =
+            _options.RequiresAdmin ||
+            _options.UsesWinDivert;
+
+        return
+            unsafeProfile &&
+            !_options.AllowUnsafeStart;
+    }
     private bool IsProcessRunningUnsafe()
     {
         return
@@ -650,11 +674,14 @@ public sealed class EngineProcessManager :
 
         public bool UsesWinDivert { get; init; }
 
+        public bool AllowUnsafeStart { get; init; }
+
         public int StopTimeoutSeconds { get; init; }
 
         public int KillTimeoutSeconds { get; init; }
     }
 }
+
 
 
 
