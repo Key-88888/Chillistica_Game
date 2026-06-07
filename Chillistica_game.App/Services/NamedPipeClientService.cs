@@ -88,7 +88,8 @@ public sealed class NamedPipeClientService
             when (
                 exception is TimeoutException or
                 OperationCanceledException or
-                IOException)
+                IOException or
+                UnauthorizedAccessException)
         {
             return false;
         }
@@ -109,11 +110,13 @@ public sealed class NamedPipeClientService
             when (
                 exception is TimeoutException or
                 OperationCanceledException or
-                IOException)
+                IOException or
+                UnauthorizedAccessException)
         {
             return "SERVICE_UNAVAILABLE";
         }
     }
 }
+
 
 

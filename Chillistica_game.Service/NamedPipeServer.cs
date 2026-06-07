@@ -1,4 +1,6 @@
 ﻿using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 
 namespace Chillistica_game.Service;
@@ -63,13 +65,19 @@ public sealed class NamedPipeServer : BackgroundService
     private async Task HandleSingleConnectionAsync(
         CancellationToken stoppingToken)
     {
-        await using var pipe =
-            new NamedPipeServerStream(
-                PipeName,
-                PipeDirection.InOut,
+        PipeSecurity pipeSecurity =
+            CreatePipeSecurity();
+
+        await using NamedPipeServerStream pipe =
+            NamedPipeServerStreamAcl.Create(
+                pipeName: PipeName,
+                direction: PipeDirection.InOut,
                 maxNumberOfServerInstances: 1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
+                transmissionMode: PipeTransmissionMode.Byte,
+                options: PipeOptions.Asynchronous,
+                inBufferSize: 4096,
+                outBufferSize: 4096,
+                pipeSecurity: pipeSecurity);
 
         await pipe.WaitForConnectionAsync(
             stoppingToken);
@@ -113,6 +121,39 @@ public sealed class NamedPipeServer : BackgroundService
                 $"Command={command ?? "<null>"}; Response={response}");
     }
 
+    private static PipeSecurity CreatePipeSecurity()
+    {
+        var security =
+            new PipeSecurity();
+
+        var localSystemSid =
+            new SecurityIdentifier(
+                WellKnownSidType.LocalSystemSid,
+                domainSid: null);
+
+        var localUsersSid =
+            new SecurityIdentifier(
+                WellKnownSidType.BuiltinUsersSid,
+                domainSid: null);
+
+        security.AddAccessRule(
+            new PipeAccessRule(
+                localSystemSid,
+                PipeAccessRights.FullControl,
+                AccessControlType.Allow));
+
+        security.AddAccessRule(
+            new PipeAccessRule(
+                localUsersSid,
+                PipeAccessRights.ReadWrite,
+                AccessControlType.Allow));
+
+        security.SetOwner(
+            localSystemSid);
+
+        return security;
+    }
+
     private static string HandleCommand(
         string? command)
     {
@@ -138,3 +179,4 @@ public sealed class NamedPipeServer : BackgroundService
         };
     }
 }
+
