@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Microsoft.Extensions.Options;
 
 namespace Chillistica_game.Service;
 
@@ -6,6 +7,8 @@ public sealed class EngineProcessManager :
     IAsyncDisposable
 {
     private readonly ServiceLogger _logger;
+    private readonly EngineOptions _options;
+
     private readonly SemaphoreSlim _sync =
         new(initialCount: 1, maxCount: 1);
 
@@ -13,9 +16,14 @@ public sealed class EngineProcessManager :
     private bool _disposed;
 
     public EngineProcessManager(
-        ServiceLogger logger)
+        ServiceLogger logger,
+        IOptions<EngineOptions> options)
     {
         _logger = logger;
+        _options = options.Value;
+
+        ValidateOptions(
+            _options);
     }
 
     public async Task<string> StartAsync(
@@ -35,29 +43,49 @@ public sealed class EngineProcessManager :
             }
 
             string executablePath =
-                Path.Combine(
-                    Environment.GetFolderPath(
-                        Environment.SpecialFolder.System),
-                    "PING.EXE");
+                ResolveExecutablePath(
+                    _options.ExecutablePath);
+
+            string workingDirectory =
+                ResolveWorkingDirectory(
+                    _options.WorkingDirectory);
 
             if (!File.Exists(executablePath))
             {
                 throw new FileNotFoundException(
-                    "Test engine executable was not found.",
+                    "Engine executable was not found.",
                     executablePath);
+            }
+
+            if (!Directory.Exists(workingDirectory))
+            {
+                throw new DirectoryNotFoundException(
+                    $"Engine working directory was not found: {workingDirectory}");
             }
 
             var startInfo =
                 new ProcessStartInfo
                 {
-                    FileName = executablePath,
-                    Arguments = "127.0.0.1 -t",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    FileName =
+                        executablePath,
+
+                    Arguments =
+                        _options.Arguments,
+
+                    UseShellExecute =
+                        false,
+
+                    CreateNoWindow =
+                        true,
+
+                    RedirectStandardOutput =
+                        true,
+
+                    RedirectStandardError =
+                        true,
+
                     WorkingDirectory =
-                        AppContext.BaseDirectory
+                        workingDirectory
                 };
 
             var process =
@@ -81,7 +109,7 @@ public sealed class EngineProcessManager :
                 process.Dispose();
 
                 throw new InvalidOperationException(
-                    "Test engine process did not start.");
+                    "Engine process did not start.");
             }
 
             process.BeginOutputReadLine();
@@ -92,7 +120,7 @@ public sealed class EngineProcessManager :
             _logger.Info(
                 stage: "EngineProcess",
                 result:
-                    $"Started; pid={process.Id}; file={executablePath}");
+                    $"Started; mode={_options.Mode}; pid={process.Id}; file={executablePath}; arguments={_options.Arguments}; workingDirectory={workingDirectory}");
 
             return "ENGINE_STARTED";
         }
@@ -146,7 +174,9 @@ public sealed class EngineProcessManager :
                     exitedGracefully =
                         await WaitForExitAsync(
                             process,
-                            timeout: TimeSpan.FromSeconds(2),
+                            timeout:
+                                TimeSpan.FromSeconds(
+                                    _options.StopTimeoutSeconds),
                             cancellationToken);
                 }
             }
@@ -169,7 +199,9 @@ public sealed class EngineProcessManager :
                 bool exitedAfterKill =
                     await WaitForExitAsync(
                         process,
-                        timeout: TimeSpan.FromSeconds(5),
+                        timeout:
+                            TimeSpan.FromSeconds(
+                                _options.KillTimeoutSeconds),
                         cancellationToken);
 
                 if (!exitedAfterKill &&
@@ -237,10 +269,12 @@ public sealed class EngineProcessManager :
 
             if (!IsProcessRunningUnsafe())
             {
-                return "ENGINE_STOPPED PID=0";
+                return
+                    $"ENGINE_STOPPED PID=0 MODE={_options.Mode}";
             }
 
-            return $"ENGINE_RUNNING PID={_process!.Id}";
+            return
+                $"ENGINE_RUNNING PID={_process!.Id} MODE={_options.Mode}";
         }
         finally
         {
@@ -383,6 +417,82 @@ public sealed class EngineProcessManager :
         finally
         {
             _process = null;
+        }
+    }
+
+    private static string ResolveExecutablePath(
+        string configuredPath)
+    {
+        string expanded =
+            Environment.ExpandEnvironmentVariables(
+                configuredPath.Trim());
+
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(
+                expanded);
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                expanded));
+    }
+
+    private static string ResolveWorkingDirectory(
+        string configuredPath)
+    {
+        string expanded =
+            Environment.ExpandEnvironmentVariables(
+                configuredPath.Trim());
+
+        if (string.IsNullOrWhiteSpace(expanded) ||
+            expanded == ".")
+        {
+            return AppContext.BaseDirectory;
+        }
+
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(
+                expanded);
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                expanded));
+    }
+
+    private static void ValidateOptions(
+        EngineOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(
+                options.Mode))
+        {
+            throw new InvalidOperationException(
+                "Engine:Mode cannot be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                options.ExecutablePath))
+        {
+            throw new InvalidOperationException(
+                "Engine:ExecutablePath cannot be empty.");
+        }
+
+        if (options.StopTimeoutSeconds < 1 ||
+            options.StopTimeoutSeconds > 60)
+        {
+            throw new InvalidOperationException(
+                "Engine:StopTimeoutSeconds must be between 1 and 60.");
+        }
+
+        if (options.KillTimeoutSeconds < 1 ||
+            options.KillTimeoutSeconds > 60)
+        {
+            throw new InvalidOperationException(
+                "Engine:KillTimeoutSeconds must be between 1 and 60.");
         }
     }
 

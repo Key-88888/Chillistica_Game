@@ -9,6 +9,10 @@ builder.Services.AddWindowsService(options =>
         "Chillistica_game Service";
 });
 
+builder.Services.Configure<EngineOptions>(
+    builder.Configuration.GetSection(
+        EngineOptions.SectionName));
+
 builder.Services.AddSingleton<ServiceLogger>();
 builder.Services.AddSingleton<EngineProcessManager>();
 
