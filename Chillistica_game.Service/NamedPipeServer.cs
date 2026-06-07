@@ -14,14 +14,14 @@ public sealed class NamedPipeServer : BackgroundService
         "1";
 
     private readonly ServiceLogger _logger;
-    private readonly EngineState _engineState;
+    private readonly EngineProcessManager _engineProcessManager;
 
     public NamedPipeServer(
         ServiceLogger logger,
-        EngineState engineState)
+        EngineProcessManager engineProcessManager)
     {
         _logger = logger;
-        _engineState = engineState;
+        _engineProcessManager = engineProcessManager;
     }
 
     protected override async Task ExecuteAsync(
@@ -116,7 +116,9 @@ public sealed class NamedPipeServer : BackgroundService
                 stoppingToken);
 
         string response =
-            HandleCommand(command);
+            await HandleCommandAsync(
+                command,
+                stoppingToken);
 
         await writer.WriteLineAsync(
             response);
@@ -160,8 +162,9 @@ public sealed class NamedPipeServer : BackgroundService
         return security;
     }
 
-    private string HandleCommand(
-        string? command)
+    private async Task<string> HandleCommandAsync(
+        string? command,
+        CancellationToken cancellationToken)
     {
         string normalized =
             command?
@@ -181,13 +184,20 @@ public sealed class NamedPipeServer : BackgroundService
                 ProtocolVersion,
 
             "ENGINE_STATUS" =>
-                _engineState.GetStatus(),
+                await _engineProcessManager.GetStatusAsync(
+                    cancellationToken),
+
+            "ENGINE_DETAILS" =>
+                await _engineProcessManager.GetDetailsAsync(
+                    cancellationToken),
 
             "START_ENGINE" =>
-                HandleStartEngine(),
+                await HandleStartEngineAsync(
+                    cancellationToken),
 
             "STOP_ENGINE" =>
-                HandleStopEngine(),
+                await HandleStopEngineAsync(
+                    cancellationToken),
 
             "" =>
                 "ERROR EMPTY_COMMAND",
@@ -197,28 +207,31 @@ public sealed class NamedPipeServer : BackgroundService
         };
     }
 
-    private string HandleStartEngine()
+    private async Task<string> HandleStartEngineAsync(
+        CancellationToken cancellationToken)
     {
         string response =
-            _engineState.Start();
+            await _engineProcessManager.StartAsync(
+                cancellationToken);
 
         _logger.Info(
-            stage: "EngineState",
+            stage: "EngineProcessCommand",
             result: response);
 
         return response;
     }
 
-    private string HandleStopEngine()
+    private async Task<string> HandleStopEngineAsync(
+        CancellationToken cancellationToken)
     {
         string response =
-            _engineState.Stop();
+            await _engineProcessManager.StopAsync(
+                cancellationToken);
 
         _logger.Info(
-            stage: "EngineState",
+            stage: "EngineProcessCommand",
             result: response);
 
         return response;
     }
 }
-

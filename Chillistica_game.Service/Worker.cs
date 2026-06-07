@@ -3,12 +3,17 @@
 public sealed class Worker : BackgroundService
 {
     private readonly ServiceLogger _logger;
+    private readonly EngineProcessManager _engineProcessManager;
 
     public Worker(
-        ServiceLogger logger)
+        ServiceLogger logger,
+        EngineProcessManager engineProcessManager)
     {
         _logger =
             logger;
+
+        _engineProcessManager =
+            engineProcessManager;
     }
 
     protected override async Task ExecuteAsync(
@@ -39,6 +44,22 @@ public sealed class Worker : BackgroundService
         }
         finally
         {
+            try
+            {
+                string stopResult =
+                    await _engineProcessManager.StopAsync();
+
+                _logger.Info(
+                    stage: "ServiceEngineCleanup",
+                    result: stopResult);
+            }
+            catch (Exception exception)
+            {
+                _logger.Error(
+                    stage: "ServiceEngineCleanup",
+                    exception: exception);
+            }
+
             _logger.Info(
                 stage: "Service",
                 result: "Stopped");
