@@ -41,7 +41,14 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         await CheckServiceAvailabilityAsync();
-        await SynchronizeEngineStatusAsync();
+
+        bool protocolCompatible =
+            await CheckProtocolCompatibilityAsync();
+
+        if (protocolCompatible)
+        {
+            await SynchronizeEngineStatusAsync();
+        }
     }
 
     private async Task CheckServiceAvailabilityAsync()
@@ -67,6 +74,53 @@ public partial class MainWindow : Window
                 stage: "ServiceConnection",
                 result: "Unavailable");
         }
+    }
+
+    private async Task<bool> CheckProtocolCompatibilityAsync()
+    {
+        string protocolVersion =
+            await _pipeClient.GetProtocolVersionAsync();
+
+        bool compatible =
+            protocolVersion.Equals(
+                NamedPipeClientService.SupportedProtocolVersion,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (compatible)
+        {
+            _logger.Info(
+                stage: "ProtocolVersion",
+                result: $"Compatible; version={protocolVersion}");
+
+            return true;
+        }
+
+        _protectionEnabled = false;
+
+        StatusIndicator.Fill =
+            new SolidColorBrush(
+                Color.FromRgb(140, 90, 77));
+
+        StatusText.Text =
+            "Требуется обновление";
+
+        StatusDescription.Text =
+            "Версии приложения и службы несовместимы";
+
+        ToggleProtectionButton.Content =
+            "Включить защиту";
+
+        ToggleProtectionButton.IsEnabled = false;
+
+        EventText.Text =
+            $"Версия IPC службы: {protocolVersion}; ожидается: {NamedPipeClientService.SupportedProtocolVersion}";
+
+        _logger.Info(
+            stage: "ProtocolVersion",
+            result:
+                $"Incompatible; service={protocolVersion}; expected={NamedPipeClientService.SupportedProtocolVersion}");
+
+        return false;
     }
 
     private async Task SynchronizeEngineStatusAsync()
@@ -1025,6 +1079,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 

@@ -9,6 +9,9 @@ public sealed class NamedPipeClientService
     public const string PipeName =
         "Chillistica_game.Control";
 
+    public const string SupportedProtocolVersion =
+        "1";
+
     public async Task<string> SendCommandAsync(
         string command,
         TimeSpan timeout,
@@ -91,6 +94,15 @@ public sealed class NamedPipeClientService
             cancellationToken: cancellationToken);
     }
 
+    public Task<string> GetProtocolVersionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "PROTOCOL_VERSION",
+            unavailableResponse: "PROTOCOL_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
     public Task<string> GetEngineStatusAsync(
         CancellationToken cancellationToken = default)
     {
@@ -142,3 +154,4 @@ public sealed class NamedPipeClientService
         }
     }
 }
+

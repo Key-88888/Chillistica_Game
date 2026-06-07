@@ -10,6 +10,9 @@ public sealed class NamedPipeServer : BackgroundService
     public const string PipeName =
         "Chillistica_game.Control";
 
+    public const string ProtocolVersion =
+        "1";
+
     private readonly ServiceLogger _logger;
     private readonly EngineState _engineState;
 
@@ -174,6 +177,9 @@ public sealed class NamedPipeServer : BackgroundService
             "STATUS" =>
                 "SERVICE_RUNNING",
 
+            "PROTOCOL_VERSION" =>
+                ProtocolVersion,
+
             "ENGINE_STATUS" =>
                 _engineState.GetStatus(),
 
@@ -215,3 +221,4 @@ public sealed class NamedPipeServer : BackgroundService
         return response;
     }
 }
+
