@@ -237,7 +237,7 @@
                             BorderBrush="{StaticResource BorderBrushPremium}"
                             BorderThickness="1"
                             CornerRadius="16"
-                            Padding="20">
+                            Padding="24">
 
                         <StackPanel>
                             <TextBlock Text="ПРОФИЛИ"
@@ -254,47 +254,23 @@
                             <TextBlock Text="Для каждого приложения будет применяться собственный сетевой сценарий."
                                        Foreground="{StaticResource SecondaryTextBrush}"
                                        TextWrapping="Wrap"
-                                       Margin="0,6,0,10"/>
+                                       Margin="0,8,0,18"/>
 
                             <CheckBox x:Name="YouTubeProfile"
                                       Content="YouTube"
-                                      IsChecked="True" Margin="0,4,0,2"/>
-
-                            <TextBlock x:Name="YouTubeScenarioText"
-                                       Text="Будет определён автоматически"
-                                       Foreground="#777F79"
-                                       FontSize="11"
-                                       Margin="22,-2,0,2"/>
+                                      IsChecked="True"/>
 
                             <CheckBox x:Name="DiscordProfile"
                                       Content="Discord"
-                                      IsChecked="True" Margin="0,4,0,2"/>
-
-                            <TextBlock x:Name="DiscordScenarioText"
-                                       Text="Будет определён автоматически"
-                                       Foreground="#777F79"
-                                       FontSize="11"
-                                       Margin="22,-2,0,2"/>
+                                      IsChecked="True"/>
 
                             <CheckBox x:Name="RobloxProfile"
                                       Content="Roblox"
-                                      IsChecked="True" Margin="0,4,0,2"/>
-
-                            <TextBlock x:Name="RobloxScenarioText"
-                                       Text="Будет определён автоматически"
-                                       Foreground="#777F79"
-                                       FontSize="11"
-                                       Margin="22,-2,0,2"/>
+                                      IsChecked="True"/>
 
                             <CheckBox x:Name="FortniteProfile"
                                       Content="Fortnite"
-                                      IsChecked="True" Margin="0,4,0,2"/>
-
-                            <TextBlock x:Name="FortniteScenarioText"
-                                       Text="Будет определён автоматически"
-                                       Foreground="#777F79"
-                                       FontSize="11"
-                                       Margin="22,-2,0,2"/>
+                                      IsChecked="True"/>
 
                             <Border Height="1"
                                     Background="{StaticResource BorderBrushPremium}"
@@ -346,9 +322,6 @@
         </Grid>
     </Grid>
 </Window>
-
-
-
 
 
 

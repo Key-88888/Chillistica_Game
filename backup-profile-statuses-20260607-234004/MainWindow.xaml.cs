@@ -13,7 +13,6 @@ public partial class MainWindow : Window
     private readonly ProcessDetectionService _processDetectionService = new();
 
     private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
-    private readonly List<ScenarioDecision> _lastScenarioDecisions = new();
 
     private bool _protectionEnabled;
     private bool _diagnosticsRunning;
@@ -107,11 +106,6 @@ public partial class MainWindow : Window
             IReadOnlyList<ScenarioDecision> decisions =
                 _scenarioPlanner.BuildDecisions(results);
 
-            _lastScenarioDecisions.Clear();
-            _lastScenarioDecisions.AddRange(decisions);
-
-            UpdateScenarioLabels(decisions);
-
             int dpiCandidates =
                 decisions.Count(decision =>
                     decision.RecommendedMode.Contains(
@@ -186,8 +180,6 @@ public partial class MainWindow : Window
 
         EventText.Text =
             "Защита выключена";
-
-        ResetScenarioLabels();
     }
 
     private async void DiagnosticsButton_Click(
@@ -332,82 +324,6 @@ public partial class MainWindow : Window
             "Запущенные приложения",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
-    }
-
-    private void UpdateScenarioLabels(
-        IReadOnlyCollection<ScenarioDecision> decisions)
-    {
-        YouTubeScenarioText.Text =
-            FindScenarioText(decisions, "YouTube");
-
-        DiscordScenarioText.Text =
-            FindScenarioText(decisions, "Discord");
-
-        RobloxScenarioText.Text =
-            FindScenarioText(decisions, "Roblox");
-
-        FortniteScenarioText.Text =
-            FindScenarioText(decisions, "Fortnite / Epic");
-    }
-
-    private static string FindScenarioText(
-        IReadOnlyCollection<ScenarioDecision> decisions,
-        string appName)
-    {
-        ScenarioDecision? decision =
-            decisions.FirstOrDefault(item =>
-                item.AppName == appName);
-
-        if (decision is null)
-        {
-            return "Нет данных";
-        }
-
-        string mode = decision.RecommendedMode;
-
-        if (mode.Equals(
-                "Direct",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return "Напрямую · обход не требуется";
-        }
-
-        if (mode.Contains(
-                "DPI",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return "Кандидат на DPI bypass";
-        }
-
-        if (mode.Contains(
-                "Proxy",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return "Резервный маршрут через прокси";
-        }
-
-        if (mode.Contains(
-                "Mixed",
-                StringComparison.OrdinalIgnoreCase) ||
-            mode.Contains(
-                "Game profile",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return "Выборочный профиль";
-        }
-
-        return "Требуется дополнительная проверка";
-    }
-
-    private void ResetScenarioLabels()
-    {
-        const string defaultText =
-            "Будет определён автоматически";
-
-        YouTubeScenarioText.Text = defaultText;
-        DiscordScenarioText.Text = defaultText;
-        RobloxScenarioText.Text = defaultText;
-        FortniteScenarioText.Text = defaultText;
     }
 
     private void Window_KeyDown(
@@ -574,7 +490,6 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
 
 
 
