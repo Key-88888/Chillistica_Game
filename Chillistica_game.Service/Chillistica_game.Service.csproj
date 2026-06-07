@@ -13,11 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\Engine\test\config.json">
-      <Link>Engine\test\config.json</Link>
+    <Content Include="..\Engine\**\*.json">
+      <Link>Engine\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 
 </Project>
+

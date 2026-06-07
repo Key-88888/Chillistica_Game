@@ -19,12 +19,16 @@ public static class EngineProfileLoader
         ArgumentNullException.ThrowIfNull(
             configuration);
 
+        EngineProfileSelectionOptions selection =
+            configuration
+                .GetSection(
+                    EngineProfileSelectionOptions.SectionName)
+                .Get<EngineProfileSelectionOptions>()
+            ?? new EngineProfileSelectionOptions();
+
         string profilePath =
-            Path.Combine(
-                AppContext.BaseDirectory,
-                "Engine",
-                "test",
-                "config.json");
+            ResolveProfilePath(
+                selection.ActiveProfilePath);
 
         try
         {
@@ -59,6 +63,31 @@ public static class EngineProfileLoader
         }
     }
 
+    private static string ResolveProfilePath(
+        string configuredPath)
+    {
+        if (string.IsNullOrWhiteSpace(
+                configuredPath))
+        {
+            throw new InvalidOperationException(
+                "EngineProfile:ActiveProfilePath cannot be empty.");
+        }
+
+        string expanded =
+            Environment.ExpandEnvironmentVariables(
+                configuredPath.Trim());
+
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(
+                expanded);
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                expanded));
+    }
     private static EngineProfile LoadProfile(
         string profilePath)
     {
@@ -285,3 +314,4 @@ public static class EngineProfileLoader
         }
     }
 }
+
