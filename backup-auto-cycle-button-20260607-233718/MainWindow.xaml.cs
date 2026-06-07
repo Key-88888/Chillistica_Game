@@ -22,164 +22,46 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    private async void ToggleProtectionButton_Click(
+    private void ToggleProtectionButton_Click(
         object sender,
         RoutedEventArgs e)
     {
+        _protectionEnabled = !_protectionEnabled;
+
         if (_protectionEnabled)
         {
-            DisableProtectionDemo();
-            return;
-        }
+            StatusIndicator.Fill =
+                new SolidColorBrush(
+                    Color.FromRgb(59, 106, 82));
 
-        await EnableProtectionAnalysisAsync();
-    }
-
-    private async Task EnableProtectionAnalysisAsync()
-    {
-        if (_diagnosticsRunning)
-        {
-            return;
-        }
-
-        _protectionEnabled = true;
-        _diagnosticsRunning = true;
-
-        ToggleProtectionButton.IsEnabled = false;
-
-        StatusIndicator.Fill =
-            new SolidColorBrush(
-                Color.FromRgb(59, 106, 82));
-
-        StatusText.Text = "Идёт настройка";
-
-        StatusDescription.Text =
-            "Проверяем приложения, соединение и подходящий сценарий";
-
-        ToggleProtectionButton.Content =
-            "Настройка...";
-
-        try
-        {
-            EventText.Text =
-                "Проверяем запущенные приложения";
-
-            IReadOnlyList<AppProcessStatus> processStatuses =
-                _processDetectionService.GetStatuses();
-
-            int runningApps =
-                processStatuses.Count(status => status.IsRunning);
-
-            EventText.Text =
-                $"Запущенных известных процессов: {runningApps}. Проверяем соединения";
-
-            List<DiagnosticsTarget> targets =
-                BuildDiagnosticsTargets();
-
-            List<DiagnosticsResult> results = new();
-
-            for (int index = 0; index < targets.Count; index++)
-            {
-                DiagnosticsTarget target = targets[index];
-
-                EventText.Text =
-                    $"Проверка {target.ServiceName}: {index + 1} из {targets.Count}";
-
-                DiagnosticsResult directResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: false);
-
-                results.Add(directResult);
-
-                DiagnosticsResult proxyResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: true);
-
-                results.Add(proxyResult);
-            }
-
-            _lastDiagnosticsResults.Clear();
-            _lastDiagnosticsResults.AddRange(results);
-
-            IReadOnlyList<ScenarioDecision> decisions =
-                _scenarioPlanner.BuildDecisions(results);
-
-            int dpiCandidates =
-                decisions.Count(decision =>
-                    decision.RecommendedMode.Contains(
-                        "DPI",
-                        StringComparison.OrdinalIgnoreCase));
-
-            int proxyCandidates =
-                decisions.Count(decision =>
-                    decision.RecommendedMode.Contains(
-                        "Proxy",
-                        StringComparison.OrdinalIgnoreCase));
-
-            StatusText.Text = "Защита подготовлена";
+            StatusText.Text = "Защита включена";
 
             StatusDescription.Text =
-                "Сценарии рассчитаны, сетевой движок пока не применён";
+                "Сейчас работает демонстрационный режим";
 
             ToggleProtectionButton.Content =
                 "Выключить защиту";
 
             EventText.Text =
-                $"Готово: сценариев {decisions.Count}, DPI-кандидатов {dpiCandidates}, proxy fallback {proxyCandidates}";
+                "Демонстрационная защита включена";
         }
-        catch (Exception ex)
+        else
         {
-            _protectionEnabled = false;
-
             StatusIndicator.Fill =
                 new SolidColorBrush(
                     Color.FromRgb(140, 90, 77));
 
-            StatusText.Text =
-                "Ошибка настройки";
+            StatusText.Text = "Защита выключена";
 
             StatusDescription.Text =
-                "Автоматическая проверка не завершилась";
+                "Сетевой движок пока не запущен";
 
             ToggleProtectionButton.Content =
                 "Включить защиту";
 
             EventText.Text =
-                $"Ошибка: {ex.Message}";
-
-            MessageBox.Show(
-                $"Не удалось выполнить автоматическую настройку.\n\n{ex.Message}",
-                "Chillistica_game",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                "Защита выключена";
         }
-        finally
-        {
-            _diagnosticsRunning = false;
-            ToggleProtectionButton.IsEnabled = true;
-        }
-    }
-
-    private void DisableProtectionDemo()
-    {
-        _protectionEnabled = false;
-
-        StatusIndicator.Fill =
-            new SolidColorBrush(
-                Color.FromRgb(140, 90, 77));
-
-        StatusText.Text = "Защита выключена";
-
-        StatusDescription.Text =
-            "Сетевой движок пока не запущен";
-
-        ToggleProtectionButton.Content =
-            "Включить защиту";
-
-        EventText.Text =
-            "Защита выключена";
     }
 
     private async void DiagnosticsButton_Click(
@@ -490,7 +372,6 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
-
 
 
 
