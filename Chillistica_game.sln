@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chillistica_game.App", "Chillistica_game.App\Chillistica_game.App.csproj", "{590CDCEB-25F5-43CC-A24E-430477AEFDE0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chillistica_game.Service", "Chillistica_game.Service\Chillistica_game.Service.csproj", "{71920064-438B-4D49-BF47-5378569CE3F6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{590CDCEB-25F5-43CC-A24E-430477AEFDE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{590CDCEB-25F5-43CC-A24E-430477AEFDE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{590CDCEB-25F5-43CC-A24E-430477AEFDE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71920064-438B-4D49-BF47-5378569CE3F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71920064-438B-4D49-BF47-5378569CE3F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71920064-438B-4D49-BF47-5378569CE3F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71920064-438B-4D49-BF47-5378569CE3F6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
