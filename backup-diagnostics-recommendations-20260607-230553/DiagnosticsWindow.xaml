@@ -89,8 +89,6 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="16"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="16"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
@@ -172,28 +170,7 @@
             </DataGrid>
         </Border>
 
-        <Border Grid.Row="4"
-                Background="#151311"
-                BorderBrush="#302A23"
-                BorderThickness="1"
-                CornerRadius="14"
-                Padding="16">
-
-            <StackPanel>
-                <TextBlock Text="Рекомендация"
-                           Foreground="#F3EDE3"
-                           FontSize="17"
-                           FontWeight="SemiBold"/>
-
-                <TextBlock x:Name="RecommendationText"
-                           Foreground="#999187"
-                           FontSize="13"
-                           TextWrapping="Wrap"
-                           Margin="0,8,0,0"/>
-            </StackPanel>
-        </Border>
-
-        <Grid Grid.Row="6">
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -210,4 +187,3 @@
         </Grid>
     </Grid>
 </Window>
-
