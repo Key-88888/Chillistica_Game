@@ -1172,6 +1172,45 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task ShowEngineHealthAsync()
+    {
+        try
+        {
+            string health =
+                await _pipeClient.GetEngineHealthAsync();
+
+            EventText.Text =
+                $"ENGINE_HEALTH: {health}";
+
+            _logger.Info(
+                stage: "EngineHealth",
+                result: health);
+
+            MessageBox.Show(
+                health,
+                "ENGINE_HEALTH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            EventText.Text =
+                $"ENGINE_HEALTH error: {ex.Message}";
+
+            _logger.Error(
+                stage: "EngineHealth",
+                exception: ex);
+
+            MessageBox.Show(
+                "Не удалось получить ENGINE_HEALTH:" +
+                Environment.NewLine +
+                Environment.NewLine +
+                ex.Message,
+                "ENGINE_HEALTH",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
     private static string GetJsonString(
         JsonElement root,
         string propertyName)
@@ -1250,6 +1289,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.F9)
         {
             await ShowEngineConfigAsync();
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F10 || e.SystemKey == Key.F10)
+        {
+            await ShowEngineHealthAsync();
 
             e.Handled = true;
             return;
@@ -1385,6 +1432,9 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
+
+
 
 
 
