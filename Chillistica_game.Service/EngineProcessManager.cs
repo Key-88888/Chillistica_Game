@@ -510,7 +510,15 @@ public sealed class EngineProcessManager :
         object sender,
         DataReceivedEventArgs e)
     {
-        // Поток читается, чтобы буфер процесса не переполнился.
+        if (string.IsNullOrWhiteSpace(e.Data))
+        {
+            return;
+        }
+
+        _logger.Info(
+            stage: "EngineProcessStdout",
+            result: TruncateProcessOutputLine(
+                e.Data));
     }
 
     private void Process_ErrorDataReceived(
@@ -527,6 +535,18 @@ public sealed class EngineProcessManager :
             result: e.Data);
     }
 
+    private static string TruncateProcessOutputLine(
+        string line)
+    {
+        const int maxLength = 500;
+
+        if (line.Length <= maxLength)
+        {
+            return line;
+        }
+
+        return line[..maxLength] + "...<truncated>";
+    }
     private bool IsUnsafeProfileBlocked()
     {
         bool unsafeProfile =
@@ -736,6 +756,8 @@ public sealed class EngineProcessManager :
         public int KillTimeoutSeconds { get; init; }
     }
 }
+
+
 
 
 
