@@ -22,3 +22,12 @@ artifacts/
 # Windows
 Thumbs.db
 Desktop.ini
+
+# Allow verified winws2 bundle files only.
+!Engine/
+!Engine/winws2/
+!Engine/winws2/bin/
+!Engine/winws2/bin/README.md
+!Engine/winws2/bin/winws2.exe
+!Engine/winws2/bin/WinDivert.dll
+!Engine/winws2/bin/WinDivert64.sys

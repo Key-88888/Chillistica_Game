@@ -3,12 +3,29 @@
     "ProfileId":  "winws2-youtube-https",
     "DisplayName":  "winws2 YouTube HTTPS only",
     "Mode":  "Winws2Preview",
-    "ExecutablePath":  "Engine\\winws2\\bin\\winws.exe",
+    "ExecutablePath":  "Engine\\winws2\\bin\\winws2.exe",
     "Arguments":  "--dry-run-placeholder --profile youtube-https",
     "WorkingDirectory":  "Engine\\winws2",
     "RequiresAdmin":  true,
     "UsesWinDivert":  true,
     "StopTimeoutSeconds":  3,
     "KillTimeoutSeconds":  5,
-    "AllowUnsafeStart":  false
+    "AllowUnsafeStart":  false,
+    "FileHashes":  [
+                       {
+                           "Path":  "Engine\\winws2\\bin\\winws2.exe",
+                           "Sha256":  "A3331A4C1BDC6653E392633E6365C53B764034561223BB872272D95F8F41C5BD",
+                           "Required":  true
+                       },
+                       {
+                           "Path":  "Engine\\winws2\\bin\\WinDivert.dll",
+                           "Sha256":  "06C3F201B815A5798816E8C15B925B28F3C38E5ABA31EFEDEC10AF9E598CE723",
+                           "Required":  true
+                       },
+                       {
+                           "Path":  "Engine\\winws2\\bin\\WinDivert64.sys",
+                           "Sha256":  "8DA085332782708D8767BCACE5327A6EC7283C17CFB85E40B03CD2323A90DDC2",
+                           "Required":  true
+                       }
+                   ]
 }
