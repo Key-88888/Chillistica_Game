@@ -36,4 +36,7 @@ public sealed class EngineProfile
 
     public int KillTimeoutSeconds { get; init; } =
         5;
+
+    public IReadOnlyList<EngineFileHash> FileHashes { get; init; } =
+        Array.Empty<EngineFileHash>();
 }

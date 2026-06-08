@@ -187,7 +187,10 @@ public static class EngineProfileLoader
                     profile.StopTimeoutSeconds,
 
                 KillTimeoutSeconds =
-                    profile.KillTimeoutSeconds
+                    profile.KillTimeoutSeconds,
+
+                FileHashes =
+                    profile.FileHashes
             };
 
         ValidateOptions(
@@ -239,7 +242,10 @@ public static class EngineProfileLoader
                 configured.StopTimeoutSeconds,
 
             KillTimeoutSeconds =
-                configured.KillTimeoutSeconds
+                configured.KillTimeoutSeconds,
+
+            FileHashes =
+                configured.FileHashes
         };
     }
 
@@ -296,6 +302,10 @@ public static class EngineProfileLoader
                 $"KillTimeoutSeconds must be between 1 and 60 in '{profilePath}'.");
         }
 
+        ValidateFileHashes(
+            profile.FileHashes,
+            profilePath);
+
         string executablePath =
             ResolveEnginePath(
                 profile.ExecutablePath);
@@ -321,6 +331,39 @@ public static class EngineProfileLoader
         {
             throw new DirectoryNotFoundException(
                 $"Engine working directory from profile was not found: {workingDirectory}; resolved: {resolvedWorkingDirectory}");
+        }
+    }
+
+    private static void ValidateFileHashes(
+        IReadOnlyList<EngineFileHash> fileHashes,
+        string profilePath)
+    {
+        foreach (EngineFileHash fileHash in fileHashes)
+        {
+            if (string.IsNullOrWhiteSpace(
+                    fileHash.Path))
+            {
+                throw new InvalidDataException(
+                    $"FileHashes item has empty Path in '{profilePath}'.");
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                    fileHash.Sha256))
+            {
+                throw new InvalidDataException(
+                    $"FileHashes item has empty Sha256 for '{fileHash.Path}' in '{profilePath}'.");
+            }
+
+            string normalizedHash =
+                fileHash.Sha256.Trim();
+
+            if (normalizedHash.Length != 64 ||
+                normalizedHash.Any(character =>
+                    !Uri.IsHexDigit(character)))
+            {
+                throw new InvalidDataException(
+                    $"FileHashes item has invalid Sha256 for '{fileHash.Path}' in '{profilePath}'.");
+            }
         }
     }
 
@@ -377,6 +420,8 @@ public static class EngineProfileLoader
         }
     }
 }
+
+
 
 
 

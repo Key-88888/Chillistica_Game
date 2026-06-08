@@ -374,7 +374,8 @@ public sealed class EngineProcessManager :
             $"USES_WINDIVERT={_options.UsesWinDivert}; " +
             $"ALLOW_UNSAFE_START={_options.AllowUnsafeStart}; " +
             $"STOP_TIMEOUT={_options.StopTimeoutSeconds}; " +
-            $"KILL_TIMEOUT={_options.KillTimeoutSeconds}";
+            $"KILL_TIMEOUT={_options.KillTimeoutSeconds}; " +
+            $"FILE_HASHES={_options.FileHashes.Count}";
     }
 
     public string GetConfigJson()
@@ -430,7 +431,10 @@ public sealed class EngineProcessManager :
                     _options.StopTimeoutSeconds,
 
                 KillTimeoutSeconds =
-                    _options.KillTimeoutSeconds
+                    _options.KillTimeoutSeconds,
+
+                FileHashesCount =
+                    _options.FileHashes.Count
             };
 
         return JsonSerializer.Serialize(
@@ -754,8 +758,12 @@ public sealed class EngineProcessManager :
         public int StopTimeoutSeconds { get; init; }
 
         public int KillTimeoutSeconds { get; init; }
+
+        public int FileHashesCount { get; init; }
     }
 }
+
+
 
 
 
