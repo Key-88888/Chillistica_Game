@@ -4,7 +4,7 @@
     "DisplayName":  "winws2 YouTube HTTPS only",
     "Mode":  "Winws2Preview",
     "ExecutablePath":  "Engine\\winws2\\bin\\winws2.exe",
-    "Arguments":  "--dry-run-placeholder --profile youtube-https",
+    "Arguments":  "--wf-tcp-out=443 --lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,\u0027rnd,rndsni\u0027)\" --filter-tcp=443 --filter-l7=tls --hostlist=\"files\\list-youtube.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld",
     "WorkingDirectory":  "Engine\\winws2",
     "RequiresAdmin":  true,
     "UsesWinDivert":  true,
@@ -25,6 +25,21 @@
                        {
                            "Path":  "Engine\\winws2\\bin\\WinDivert64.sys",
                            "Sha256":  "8DA085332782708D8767BCACE5327A6EC7283C17CFB85E40B03CD2323A90DDC2",
+                           "Required":  true
+                       },
+                       {
+                           "Path":  "Engine\\winws2\\lua\\zapret-lib.lua",
+                           "Sha256":  "5B62113DA6F61735D446221161B31653DF5510CBE14E15AC55C6BD2AB5BFEF0D",
+                           "Required":  true
+                       },
+                       {
+                           "Path":  "Engine\\winws2\\lua\\zapret-antidpi.lua",
+                           "Sha256":  "BE34771B6A00246C911BB6AB4B7552EE9B1A597DBC144EE598E17F67FCDA5D99",
+                           "Required":  true
+                       },
+                       {
+                           "Path":  "Engine\\winws2\\files\\list-youtube.txt",
+                           "Sha256":  "47EA8A9CA11EB9AD833E5F22D12E8857400880E8F555F45687230CE8BA57D299",
                            "Required":  true
                        }
                    ]

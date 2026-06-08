@@ -31,3 +31,9 @@ Desktop.ini
 !Engine/winws2/bin/winws2.exe
 !Engine/winws2/bin/WinDivert.dll
 !Engine/winws2/bin/WinDivert64.sys
+
+!Engine/winws2/lua/
+!Engine/winws2/lua/zapret-lib.lua
+!Engine/winws2/lua/zapret-antidpi.lua
+!Engine/winws2/files/
+!Engine/winws2/files/list-youtube.txt
