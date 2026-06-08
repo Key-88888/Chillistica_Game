@@ -1320,6 +1320,7 @@ public partial class MainWindow : Window
         }
     }
 
+
     private static bool EngineHealthConfirmsRunning(string health)
     {
         return
@@ -1604,6 +1605,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 

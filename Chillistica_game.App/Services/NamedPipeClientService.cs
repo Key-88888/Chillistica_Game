@@ -137,6 +137,7 @@ public sealed class NamedPipeClientService
             cancellationToken: cancellationToken);
     }
 
+
     public Task<string> GetEngineConfigAsync(
         CancellationToken cancellationToken = default)
     {
@@ -197,6 +198,7 @@ public sealed class NamedPipeClientService
         }
     }
 }
+
 
 
 

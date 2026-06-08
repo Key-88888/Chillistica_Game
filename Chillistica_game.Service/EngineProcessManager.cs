@@ -278,6 +278,7 @@ public sealed class EngineProcessManager :
             $"ENGINE_HASH_STATUS OK COUNT={_options.FileHashes.Count} PROFILE={_options.ProfileId}";
     }
 
+
     public async Task<string> GetHealthAsync(
         CancellationToken cancellationToken = default)
     {
@@ -777,6 +778,7 @@ public sealed class EngineProcessManager :
         public int FileHashesCount { get; init; }
     }
 }
+
 
 
 
