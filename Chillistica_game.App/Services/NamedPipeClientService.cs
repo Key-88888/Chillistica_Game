@@ -128,6 +128,15 @@ public sealed class NamedPipeClientService
             unavailableResponse: "ENGINE_HEALTH_UNAVAILABLE",
             cancellationToken: cancellationToken);
     }
+    public Task<string> GetEngineHashStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: "ENGINE_HASH_STATUS",
+            unavailableResponse: "ENGINE_HASH_STATUS_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
     public Task<string> GetEngineConfigAsync(
         CancellationToken cancellationToken = default)
     {
@@ -188,6 +197,7 @@ public sealed class NamedPipeClientService
         }
     }
 }
+
 
 
 

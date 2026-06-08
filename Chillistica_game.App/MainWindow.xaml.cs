@@ -1273,6 +1273,53 @@ public partial class MainWindow : Window
                 MessageBoxImage.Error);
         }
     }
+    private async Task ShowEngineHashStatusAsync()
+    {
+        try
+        {
+            string hashStatus =
+                await _pipeClient.GetEngineHashStatusAsync();
+
+            EventText.Text =
+                $"ENGINE_HASH_STATUS: {hashStatus}";
+
+            _logger.Info(
+                stage: "EngineHashStatus",
+                result: hashStatus);
+
+            MessageBoxImage icon =
+                hashStatus.Contains(
+                    "ENGINE_HASH_STATUS OK",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? MessageBoxImage.Information
+                    : MessageBoxImage.Warning;
+
+            MessageBox.Show(
+                hashStatus,
+                "ENGINE_HASH_STATUS",
+                MessageBoxButton.OK,
+                icon);
+        }
+        catch (Exception ex)
+        {
+            EventText.Text =
+                $"ENGINE_HASH_STATUS error: {ex.Message}";
+
+            _logger.Error(
+                stage: "EngineHashStatus",
+                exception: ex);
+
+            MessageBox.Show(
+                "Не удалось получить ENGINE_HASH_STATUS:" +
+                Environment.NewLine +
+                Environment.NewLine +
+                ex.Message,
+                "ENGINE_HASH_STATUS",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private static bool EngineHealthConfirmsRunning(string health)
     {
         return
@@ -1418,6 +1465,14 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+
+        if (e.Key == Key.F11 || e.SystemKey == Key.F11)
+        {
+            await ShowEngineHashStatusAsync();
+
+            e.Handled = true;
+            return;
+        }
     }
 
     private List<DiagnosticsTarget> BuildDiagnosticsTargets()
@@ -1549,6 +1604,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 

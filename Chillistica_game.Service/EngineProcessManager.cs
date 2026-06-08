@@ -263,6 +263,21 @@ public sealed class EngineProcessManager :
         }
     }
 
+    public string GetHashStatus()
+    {
+        ThrowIfDisposed();
+
+        if (!string.IsNullOrWhiteSpace(
+                _options.ConfigurationWarning))
+        {
+            return
+                $"ENGINE_HASH_STATUS INVALID PROFILE={_options.ProfileId} REASON=CONFIG_WARNING";
+        }
+
+        return
+            $"ENGINE_HASH_STATUS OK COUNT={_options.FileHashes.Count} PROFILE={_options.ProfileId}";
+    }
+
     public async Task<string> GetHealthAsync(
         CancellationToken cancellationToken = default)
     {
@@ -762,6 +777,7 @@ public sealed class EngineProcessManager :
         public int FileHashesCount { get; init; }
     }
 }
+
 
 
 
