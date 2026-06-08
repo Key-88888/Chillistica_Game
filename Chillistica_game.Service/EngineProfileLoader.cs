@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
 namespace Chillistica_game.Service;
@@ -89,6 +90,7 @@ public static class EngineProfileLoader
                 AppContext.BaseDirectory,
                 expanded));
     }
+
     private static string ResolveProfilePath(
         string configuredPath)
     {
@@ -114,6 +116,7 @@ public static class EngineProfileLoader
                 AppContext.BaseDirectory,
                 expanded));
     }
+
     private static EngineProfile LoadProfile(
         string profilePath)
     {
@@ -354,17 +357,62 @@ public static class EngineProfileLoader
                     $"FileHashes item has empty Sha256 for '{fileHash.Path}' in '{profilePath}'.");
             }
 
-            string normalizedHash =
-                fileHash.Sha256.Trim();
+            string normalizedExpectedHash =
+                fileHash.Sha256
+                    .Trim()
+                    .ToUpperInvariant();
 
-            if (normalizedHash.Length != 64 ||
-                normalizedHash.Any(character =>
+            if (normalizedExpectedHash.Length != 64 ||
+                normalizedExpectedHash.Any(character =>
                     !Uri.IsHexDigit(character)))
             {
                 throw new InvalidDataException(
                     $"FileHashes item has invalid Sha256 for '{fileHash.Path}' in '{profilePath}'.");
             }
+
+            string resolvedFilePath =
+                ResolveEnginePath(
+                    fileHash.Path);
+
+            if (!File.Exists(resolvedFilePath))
+            {
+                if (fileHash.Required)
+                {
+                    throw new FileNotFoundException(
+                        $"Required file hash target was not found: {fileHash.Path}",
+                        resolvedFilePath);
+                }
+
+                continue;
+            }
+
+            string actualHash =
+                ComputeSha256(
+                    resolvedFilePath);
+
+            if (!actualHash.Equals(
+                    normalizedExpectedHash,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"SHA256 mismatch for '{fileHash.Path}' in '{profilePath}'. Expected '{normalizedExpectedHash}', actual '{actualHash}'.");
+            }
         }
+    }
+
+    private static string ComputeSha256(
+        string filePath)
+    {
+        byte[] bytes =
+            File.ReadAllBytes(
+                filePath);
+
+        byte[] hash =
+            SHA256.HashData(
+                bytes);
+
+        return Convert.ToHexString(
+            hash);
     }
 
     private static void ValidateOptions(
@@ -420,10 +468,3 @@ public static class EngineProfileLoader
         }
     }
 }
-
-
-
-
-
-
-
