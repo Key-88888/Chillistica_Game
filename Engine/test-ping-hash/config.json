@@ -1,0 +1,21 @@
+﻿{
+    "SchemaVersion":  1,
+    "ProfileId":  "test-ping-hash",
+    "DisplayName":  "Test process lifecycle with SHA256",
+    "Mode":  "Test",
+    "ExecutablePath":  "%SystemRoot%\\System32\\PING.EXE",
+    "Arguments":  "127.0.0.1 -t",
+    "WorkingDirectory":  ".",
+    "RequiresAdmin":  false,
+    "UsesWinDivert":  false,
+    "AllowUnsafeStart":  false,
+    "StopTimeoutSeconds":  2,
+    "KillTimeoutSeconds":  5,
+    "FileHashes":  [
+                       {
+                           "Path":  "%SystemRoot%\\System32\\PING.EXE",
+                           "Sha256":  "E4224D18C3C96826E6F4240893FAC02C8A1FF335CE92614FC8744369594DD468",
+                           "Required":  true
+                       }
+                   ]
+}
