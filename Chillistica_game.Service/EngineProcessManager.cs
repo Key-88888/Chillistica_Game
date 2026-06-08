@@ -263,6 +263,44 @@ public sealed class EngineProcessManager :
         }
     }
 
+    public async Task<string> GetHealthAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (!string.IsNullOrWhiteSpace(
+                    _options.ConfigurationWarning))
+            {
+                return
+                    $"ENGINE_HEALTH INVALID PROFILE={_options.ProfileId} REASON=CONFIG_WARNING";
+            }
+
+            if (IsUnsafeProfileBlocked())
+            {
+                return
+                    $"ENGINE_HEALTH BLOCKED PROFILE={_options.ProfileId} REASON=REQUIRES_APPROVAL";
+            }
+
+            if (!IsProcessRunningUnsafe())
+            {
+                return
+                    $"ENGINE_HEALTH STOPPED PID=0 MODE={_options.Mode} PROFILE={_options.ProfileId}";
+            }
+
+            return
+                $"ENGINE_HEALTH RUNNING PID={_process!.Id} MODE={_options.Mode} PROFILE={_options.ProfileId}";
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
     public async Task<string> GetStatusAsync(
         CancellationToken cancellationToken = default)
     {
@@ -698,6 +736,7 @@ public sealed class EngineProcessManager :
         public int KillTimeoutSeconds { get; init; }
     }
 }
+
 
 
 
