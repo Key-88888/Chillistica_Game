@@ -44,6 +44,37 @@ public sealed class EngineProcessManager :
 
         return "ENGINE_CAN_START";
     }
+    public string GetUnsafeApprovalStatus()
+    {
+        ThrowIfDisposed();
+
+        if (!string.IsNullOrWhiteSpace(
+                _options.ConfigurationWarning))
+        {
+            return
+                $"ENGINE_UNSAFE_APPROVAL_STATUS INVALID PROFILE={_options.ProfileId} REASON=CONFIG_WARNING";
+        }
+
+        bool unsafeProfile =
+            _options.RequiresAdmin ||
+            _options.UsesWinDivert;
+
+        if (!unsafeProfile)
+        {
+            return
+                $"ENGINE_UNSAFE_APPROVAL_STATUS NOT_REQUIRED PROFILE={_options.ProfileId}";
+        }
+
+        if (_options.AllowUnsafeStart)
+        {
+            return
+                $"ENGINE_UNSAFE_APPROVAL_STATUS CONFIG_ALLOWED PROFILE={_options.ProfileId} APPROVED=TRUE";
+        }
+
+        return
+            $"ENGINE_UNSAFE_APPROVAL_STATUS REQUIRED PROFILE={_options.ProfileId} APPROVED=FALSE";
+    }
+
     public async Task<string> StartAsync(
         CancellationToken cancellationToken = default)
     {
@@ -778,6 +809,7 @@ public sealed class EngineProcessManager :
         public int FileHashesCount { get; init; }
     }
 }
+
 
 
 

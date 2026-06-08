@@ -197,6 +197,9 @@ public sealed class NamedPipeServer : BackgroundService
             "ENGINE_HASH_STATUS" =>
                 _engineProcessManager.GetHashStatus(),
 
+            "ENGINE_UNSAFE_APPROVAL_STATUS" =>
+                _engineProcessManager.GetUnsafeApprovalStatus(),
+
             "ENGINE_DETAILS" =>
                 await _engineProcessManager.GetDetailsAsync(
                     cancellationToken),
@@ -251,6 +254,7 @@ public sealed class NamedPipeServer : BackgroundService
         return response;
     }
 }
+
 
 
 
