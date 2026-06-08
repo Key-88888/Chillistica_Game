@@ -1143,6 +1143,9 @@ public partial class MainWindow : Window
             string killTimeoutSeconds =
                 GetJsonValue(root, "KillTimeoutSeconds");
 
+            string fileHashesCount =
+                GetJsonValue(root, "FileHashesCount");
+
             StringBuilder report = new();
 
             report.AppendLine("ProfileId:");
@@ -1195,6 +1198,10 @@ public partial class MainWindow : Window
 
             report.AppendLine("KillTimeoutSeconds:");
             report.AppendLine(killTimeoutSeconds);
+            report.AppendLine();
+
+            report.AppendLine("FileHashesCount:");
+            report.AppendLine(fileHashesCount);
 
             EventText.Text =
                 "Конфигурация движка получена";
@@ -1202,7 +1209,7 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "EngineConfig",
                 result:
-                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}; allowUnsafeStart={allowUnsafeStart}");
+                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}; allowUnsafeStart={allowUnsafeStart}; fileHashesCount={fileHashesCount}");
 
             MessageBox.Show(
                 report.ToString(),
@@ -1542,6 +1549,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
