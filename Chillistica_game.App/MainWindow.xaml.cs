@@ -509,6 +509,32 @@ public partial class MainWindow : Window
                     $"Служба отклонила запуск: {engineResponse}");
             }
 
+            string startHealth =
+                await _pipeClient.GetEngineHealthAsync();
+
+            _logger.Info(
+                stage: "EngineHealth",
+                result: $"AfterStart; health={startHealth}");
+
+            if (!EngineHealthConfirmsRunning(startHealth))
+            {
+                string rollbackResponse =
+                    await _pipeClient.StopEngineAsync();
+
+                string rollbackHealth =
+                    await _pipeClient.GetEngineHealthAsync();
+
+                _logger.Error(
+                    stage: "EngineHealth",
+                    exception: new InvalidOperationException(
+                        $"Start verification failed; health={startHealth}; rollbackResponse={rollbackResponse}; rollbackHealth={rollbackHealth}"));
+
+                throw new InvalidOperationException(
+                    "Движок не подтвердил запуск через ENGINE_HEALTH. " +
+                    $"Ответ: {startHealth}. " +
+                    $"Откат: {rollbackResponse}; {rollbackHealth}");
+            }
+
             _protectionEnabled = true;
 
             StatusText.Text =
@@ -589,6 +615,35 @@ public partial class MainWindow : Window
             {
                 throw new InvalidOperationException(
                     $"Служба отклонила остановку: {engineResponse}");
+            }
+
+            string stopHealth =
+                await _pipeClient.GetEngineHealthAsync();
+
+            _logger.Info(
+                stage: "EngineHealth",
+                result: $"AfterStop; health={stopHealth}");
+
+            if (!EngineHealthConfirmsStopped(stopHealth))
+            {
+                string retryStopResponse =
+                    await _pipeClient.StopEngineAsync();
+
+                string retryStopHealth =
+                    await _pipeClient.GetEngineHealthAsync();
+
+                _logger.Error(
+                    stage: "EngineHealth",
+                    exception: new InvalidOperationException(
+                        $"Stop verification failed; health={stopHealth}; retryResponse={retryStopResponse}; retryHealth={retryStopHealth}"));
+
+                if (!EngineHealthConfirmsStopped(retryStopHealth))
+                {
+                    throw new InvalidOperationException(
+                        "Движок не подтвердил остановку через ENGINE_HEALTH. " +
+                        $"Первый ответ: {stopHealth}. " +
+                        $"Повторная остановка: {retryStopResponse}; {retryStopHealth}");
+                }
             }
 
             _protectionEnabled = false;
@@ -1211,6 +1266,61 @@ public partial class MainWindow : Window
                 MessageBoxImage.Error);
         }
     }
+    private static bool EngineHealthConfirmsRunning(string health)
+    {
+        return
+            health.Contains(
+                "ENGINE_HEALTH RUNNING",
+                StringComparison.OrdinalIgnoreCase) &&
+            TryGetEngineHealthPid(
+                health,
+                out int pid) &&
+            pid > 0;
+    }
+
+    private static bool EngineHealthConfirmsStopped(string health)
+    {
+        return
+            health.Contains(
+                "ENGINE_HEALTH STOPPED",
+                StringComparison.OrdinalIgnoreCase) &&
+            TryGetEngineHealthPid(
+                health,
+                out int pid) &&
+            pid == 0;
+    }
+
+    private static bool TryGetEngineHealthPid(
+        string health,
+        out int pid)
+    {
+        pid = 0;
+
+        string[] parts =
+            health.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries);
+
+        foreach (string part in parts)
+        {
+            if (!part.StartsWith(
+                    "PID=",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string value =
+                part.Substring("PID=".Length);
+
+            return int.TryParse(
+                value,
+                out pid);
+        }
+
+        return false;
+    }
     private static string GetJsonString(
         JsonElement root,
         string propertyName)
@@ -1432,6 +1542,7 @@ public partial class MainWindow : Window
             : "выключен";
     }
 }
+
 
 
 
