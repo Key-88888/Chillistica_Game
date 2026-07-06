@@ -1,39 +1,13 @@
-﻿# .NET build output
-**/bin/
+﻿**/bin/
 **/obj/
-
-# Visual Studio / Rider
 .vs/
 .idea/
 *.user
 *.suo
-
-# Local backups created during development
 backup-*/
-
-# Local reports
 *-report-*.txt
 logger-inspection.txt
-
-# Published builds
 publish/
 artifacts/
-
-# Windows
 Thumbs.db
 Desktop.ini
-
-# Allow verified winws2 bundle files only.
-!Engine/
-!Engine/winws2/
-!Engine/winws2/bin/
-!Engine/winws2/bin/README.md
-!Engine/winws2/bin/winws2.exe
-!Engine/winws2/bin/WinDivert.dll
-!Engine/winws2/bin/WinDivert64.sys
-
-!Engine/winws2/lua/
-!Engine/winws2/lua/zapret-lib.lua
-!Engine/winws2/lua/zapret-antidpi.lua
-!Engine/winws2/files/
-!Engine/winws2/files/list-youtube.txt
