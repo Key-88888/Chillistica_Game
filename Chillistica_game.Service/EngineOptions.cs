@@ -33,8 +33,6 @@ public sealed class EngineOptions
 
     public bool UsesWinDivert { get; init; }
 
-    public bool AllowUnsafeStart { get; init; }
-
     public int StopTimeoutSeconds { get; init; } =
         2;
 

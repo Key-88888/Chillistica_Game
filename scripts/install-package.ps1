@@ -1,7 +1,8 @@
 ﻿param(
     [string]$InstallDir = "$env:ProgramFiles\Chillistica_game",
     [string]$ServiceName = "Chillistica_game.Service",
-    [string]$DisplayName = "Chillistica_game Service"
+    [string]$DisplayName = "Chillistica_game Service",
+    [switch]$Silent
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +24,10 @@ function Restart-AsAdmin {
         "-File", "`"$PSCommandPath`"",
         "-InstallDir", "`"$InstallDir`""
     )
+
+    if ($Silent) {
+        $args += "-Silent"
+    }
 
     Start-Process `
         -FilePath "powershell.exe" `
@@ -205,4 +210,7 @@ Write-Host "Shortcut created: $shortcutPath" -ForegroundColor Green
 Start-Process -FilePath $appExe
 
 Write-Host "Installation complete." -ForegroundColor Green
-Read-Host "Press Enter to close"
+
+if (-not $Silent) {
+    Read-Host "Press Enter to close"
+}

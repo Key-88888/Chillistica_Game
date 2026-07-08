@@ -2,7 +2,7 @@
 
 public sealed class AppSettings
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -13,4 +13,6 @@ public sealed class AppSettings
     public bool RobloxEnabled { get; set; } = true;
 
     public bool FortniteEnabled { get; set; } = true;
+
+    public Dictionary<string, int> LastGoodStrategyIndex { get; set; } = new();
 }

@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-Chillistica_game.Service-0f47c249-0a9a-4842-b074-31377bb42e3d</UserSecretsId>
+    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,43 +20,22 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
 
-    <Content Include="..\Engine\winws2\bin\winws2.exe">
-      <Link>Engine\winws2\bin\winws2.exe</Link>
+    <Content Include="..\Engine\winws2\bin\*">
+      <Link>Engine\winws2\bin\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
 
-    <Content Include="..\Engine\winws2\bin\WinDivert.dll">
-      <Link>Engine\winws2\bin\WinDivert.dll</Link>
+    <Content Include="..\Engine\winws2\lua\*.lua">
+      <Link>Engine\winws2\lua\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
 
-    <Content Include="..\Engine\winws2\bin\WinDivert64.sys">
-      <Link>Engine\winws2\bin\WinDivert64.sys</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-
-    <Content Include="..\Engine\winws2\lua\zapret-lib.lua">
-      <Link>Engine\winws2\lua\zapret-lib.lua</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-
-    <Content Include="..\Engine\winws2\lua\zapret-antidpi.lua">
-      <Link>Engine\winws2\lua\zapret-antidpi.lua</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-
-    <Content Include="..\Engine\winws2\files\list-youtube.txt">
-      <Link>Engine\winws2\files\list-youtube.txt</Link>
+    <Content Include="..\Engine\winws2\files\*.txt">
+      <Link>Engine\winws2\files\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>

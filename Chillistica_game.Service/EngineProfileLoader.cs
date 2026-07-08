@@ -14,6 +14,24 @@ public static class EngineProfileLoader
             AllowTrailingCommas = true
         };
 
+    public static EngineOptions LoadAndValidateExplicit(
+        string profilePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            profilePath);
+
+        EngineProfile profile =
+            LoadProfile(
+                profilePath);
+
+        ValidateProfile(
+            profile,
+            profilePath);
+
+        return ConvertProfileToOptions(
+            profile);
+    }
+
     public static EngineOptions LoadOrFallback(
         IConfiguration configuration)
     {
@@ -183,9 +201,6 @@ public static class EngineProfileLoader
                 UsesWinDivert =
                     profile.UsesWinDivert,
 
-                AllowUnsafeStart =
-                    profile.AllowUnsafeStart,
-
                 StopTimeoutSeconds =
                     profile.StopTimeoutSeconds,
 
@@ -237,9 +252,6 @@ public static class EngineProfileLoader
 
             UsesWinDivert =
                 configured.UsesWinDivert,
-
-            AllowUnsafeStart =
-                configured.AllowUnsafeStart,
 
             StopTimeoutSeconds =
                 configured.StopTimeoutSeconds,
@@ -318,6 +330,35 @@ public static class EngineProfileLoader
             throw new FileNotFoundException(
                 $"Engine executable from profile was not found: {profile.ExecutablePath}",
                 executablePath);
+        }
+
+        bool isUnsafeProfile =
+            profile.RequiresAdmin ||
+            profile.UsesWinDivert;
+
+        if (isUnsafeProfile)
+        {
+            string trustedBinDirectory =
+                ResolveEnginePath(
+                    "Engine\\winws2\\bin");
+
+            bool isUnderTrustedDirectory =
+                executablePath.StartsWith(
+                    trustedBinDirectory + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (!isUnderTrustedDirectory)
+            {
+                throw new InvalidDataException(
+                    $"ExecutablePath is outside the trusted Engine\\winws2\\bin directory in '{profilePath}': {profile.ExecutablePath}");
+            }
+
+            if (!EngineTrustManifestLoader.IsExecutableTrusted(
+                    executablePath))
+            {
+                throw new InvalidDataException(
+                    $"ExecutablePath is not listed in the trusted engine binaries manifest in '{profilePath}': {profile.ExecutablePath}");
+            }
         }
 
         string workingDirectory =

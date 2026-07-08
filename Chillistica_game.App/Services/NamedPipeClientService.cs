@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.IO.Pipes;
+using System.Linq;
 using System.Text;
 
 namespace Chillistica_game.App.Services;
@@ -10,7 +11,7 @@ public sealed class NamedPipeClientService
         "Chillistica_game.Control";
 
     public const string SupportedProtocolVersion =
-        "1";
+        "2";
 
     public async Task<string> SendCommandAsync(
         string command,
@@ -170,6 +171,31 @@ public sealed class NamedPipeClientService
     {
         return SendCommandSafelyAsync(
             command: "STOP_ENGINE",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> StartEngineWithAppsAsync(
+        IReadOnlyDictionary<string, int> selections,
+        CancellationToken cancellationToken = default)
+    {
+        string selectionsArgument =
+            string.Join(
+                ",",
+                selections.Select(pair => $"{pair.Key}:{pair.Value}"));
+
+        return SendCommandSafelyAsync(
+            command: $"START_ENGINE_APPS {selectionsArgument}",
+            unavailableResponse: "ENGINE_UNAVAILABLE",
+            cancellationToken: cancellationToken);
+    }
+
+    public Task<string> GetStrategyCatalogAsync(
+        string appId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendCommandSafelyAsync(
+            command: $"GET_APP_STRATEGY_CATALOG {appId}",
             unavailableResponse: "ENGINE_UNAVAILABLE",
             cancellationToken: cancellationToken);
     }

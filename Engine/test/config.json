@@ -1,5 +1,5 @@
 ﻿{
-    "SchemaVersion":  1,
+    "SchemaVersion":  2,
     "ProfileId":  "test-ping",
     "DisplayName":  "Test process lifecycle",
     "Mode":  "Test",
@@ -9,6 +9,5 @@
     "RequiresAdmin":  false,
     "UsesWinDivert":  false,
     "StopTimeoutSeconds":  2,
-    "KillTimeoutSeconds":  5,
-    "AllowUnsafeStart":  false
+    "KillTimeoutSeconds":  5
 }

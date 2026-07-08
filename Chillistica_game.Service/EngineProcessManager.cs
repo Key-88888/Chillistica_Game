@@ -8,7 +8,7 @@ public sealed class EngineProcessManager :
     IAsyncDisposable
 {
     private readonly ServiceLogger _logger;
-    private readonly EngineOptions _options;
+    private EngineOptions _options;
 
     private readonly SemaphoreSlim _sync =
         new(initialCount: 1, maxCount: 1);
@@ -65,14 +65,14 @@ public sealed class EngineProcessManager :
                 $"ENGINE_UNSAFE_APPROVAL_STATUS NOT_REQUIRED PROFILE={_options.ProfileId}";
         }
 
-        if (_options.AllowUnsafeStart)
+        if (IsExecutableTrusted())
         {
             return
-                $"ENGINE_UNSAFE_APPROVAL_STATUS CONFIG_ALLOWED PROFILE={_options.ProfileId} APPROVED=TRUE";
+                $"ENGINE_UNSAFE_APPROVAL_STATUS TRUSTED_BINARY PROFILE={_options.ProfileId} APPROVED=TRUE";
         }
 
         return
-            $"ENGINE_UNSAFE_APPROVAL_STATUS REQUIRED PROFILE={_options.ProfileId} APPROVED=FALSE";
+            $"ENGINE_UNSAFE_APPROVAL_STATUS UNTRUSTED_BINARY PROFILE={_options.ProfileId} APPROVED=FALSE";
     }
 
     public async Task<string> StartAsync(
@@ -86,6 +86,17 @@ public sealed class EngineProcessManager :
             ThrowIfDisposed();
             CleanupExitedProcessUnsafe();
 
+            if (!string.IsNullOrWhiteSpace(
+                    _options.ConfigurationWarning))
+            {
+                _logger.Info(
+                    stage: "EngineProcess",
+                    result:
+                        $"BlockedConfigInvalid; profileId={_options.ProfileId}; warning={_options.ConfigurationWarning}");
+
+                return "ENGINE_BLOCKED_CONFIG_INVALID";
+            }
+
             if (IsProcessRunningUnsafe())
             {
                 return "ENGINE_ALREADY_RUNNING";
@@ -96,7 +107,7 @@ public sealed class EngineProcessManager :
                 _logger.Info(
                     stage: "EngineProcess",
                     result:
-                        $"BlockedUnsafeProfile; profileId={_options.ProfileId}; requiresAdmin={_options.RequiresAdmin}; usesWinDivert={_options.UsesWinDivert}; allowUnsafeStart={_options.AllowUnsafeStart}");
+                        $"BlockedUnsafeProfile; profileId={_options.ProfileId}; requiresAdmin={_options.RequiresAdmin}; usesWinDivert={_options.UsesWinDivert}; engineTrusted={IsExecutableTrusted()}");
 
                 return "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL";
             }
@@ -294,6 +305,44 @@ public sealed class EngineProcessManager :
         }
     }
 
+    public async Task<string> ApplyProfileAsync(
+        EngineOptions newOptions,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            newOptions);
+
+        await _sync.WaitAsync(
+            cancellationToken);
+
+        try
+        {
+            ThrowIfDisposed();
+            CleanupExitedProcessUnsafe();
+
+            if (IsProcessRunningUnsafe())
+            {
+                return "ENGINE_BUSY_RUNNING";
+            }
+
+            ValidateOptions(
+                newOptions);
+
+            _options = newOptions;
+
+            _logger.Info(
+                stage: "EngineProcess",
+                result:
+                    $"ProfileApplied; profileId={_options.ProfileId}; source={_options.ConfigurationSource}");
+
+            return "ENGINE_PROFILE_APPLIED";
+        }
+        finally
+        {
+            _sync.Release();
+        }
+    }
+
     public string GetHashStatus()
     {
         ThrowIfDisposed();
@@ -419,7 +468,7 @@ public sealed class EngineProcessManager :
             $"WORKDIR={workingDirectory}; " +
             $"REQUIRES_ADMIN={_options.RequiresAdmin}; " +
             $"USES_WINDIVERT={_options.UsesWinDivert}; " +
-            $"ALLOW_UNSAFE_START={_options.AllowUnsafeStart}; " +
+            $"ENGINE_TRUSTED={IsExecutableTrusted()}; " +
             $"STOP_TIMEOUT={_options.StopTimeoutSeconds}; " +
             $"KILL_TIMEOUT={_options.KillTimeoutSeconds}; " +
             $"FILE_HASHES={_options.FileHashes.Count}";
@@ -471,8 +520,8 @@ public sealed class EngineProcessManager :
                 UsesWinDivert =
                     _options.UsesWinDivert,
 
-                AllowUnsafeStart =
-                    _options.AllowUnsafeStart,
+                EngineTrusted =
+                    IsExecutableTrusted(),
 
                 StopTimeoutSeconds =
                     _options.StopTimeoutSeconds,
@@ -606,7 +655,17 @@ public sealed class EngineProcessManager :
 
         return
             unsafeProfile &&
-            !_options.AllowUnsafeStart;
+            !IsExecutableTrusted();
+    }
+
+    private bool IsExecutableTrusted()
+    {
+        string executablePath =
+            ResolveExecutablePath(
+                _options.ExecutablePath);
+
+        return EngineTrustManifestLoader.IsExecutableTrusted(
+            executablePath);
     }
     private bool IsProcessRunningUnsafe()
     {
@@ -800,7 +859,7 @@ public sealed class EngineProcessManager :
 
         public bool UsesWinDivert { get; init; }
 
-        public bool AllowUnsafeStart { get; init; }
+        public bool EngineTrusted { get; init; }
 
         public int StopTimeoutSeconds { get; init; }
 

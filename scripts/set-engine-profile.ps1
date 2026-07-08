@@ -39,7 +39,7 @@ function Add-Error {
     $errors.Add($Message)
 }
 
-if ($profile.SchemaVersion -ne 1) {
+if ($profile.SchemaVersion -ne 2) {
     Add-Error "Unsupported SchemaVersion: $($profile.SchemaVersion)"
 }
 
@@ -63,8 +63,15 @@ if ($profile.KillTimeoutSeconds -lt 1 -or $profile.KillTimeoutSeconds -gt 60) {
     Add-Error "KillTimeoutSeconds must be between 1 and 60"
 }
 
-if ($profile.AllowUnsafeStart -eq $true) {
-    Add-Error "AllowUnsafeStart=true is forbidden by this script"
+$isUnsafeProfile = ($profile.RequiresAdmin -eq $true) -or ($profile.UsesWinDivert -eq $true)
+
+if ($isUnsafeProfile) {
+    $trustedBinDirectory = Join-Path $projectRoot "Engine\winws2\bin"
+    $resolvedExecutablePath = Join-Path $projectRoot $profile.ExecutablePath
+
+    if (-not $resolvedExecutablePath.StartsWith($trustedBinDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+        Add-Error "ExecutablePath must be under Engine\winws2\bin for profiles with RequiresAdmin/UsesWinDivert (service enforces this against trusted-manifest.json)"
+    }
 }
 
 $hashEntries = @(
@@ -112,11 +119,11 @@ Write-Host ""
 Write-Host "===== PROFILE SAFETY =====" -ForegroundColor Cyan
 
 [PSCustomObject]@{
-    ProfileId        = $profile.ProfileId
-    RequiresAdmin    = $profile.RequiresAdmin
-    UsesWinDivert     = $profile.UsesWinDivert
-    AllowUnsafeStart = $profile.AllowUnsafeStart
-    FileHashesCount  = $hashEntries.Count
+    ProfileId       = $profile.ProfileId
+    RequiresAdmin   = $profile.RequiresAdmin
+    UsesWinDivert   = $profile.UsesWinDivert
+    IsUnsafeProfile = $isUnsafeProfile
+    FileHashesCount = $hashEntries.Count
 } | Format-List
 
 if ($errors.Count -gt 0) {

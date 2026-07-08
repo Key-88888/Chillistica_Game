@@ -15,9 +15,14 @@ public partial class MainWindow : Window
     private readonly SettingsService _settingsService = new();
     private readonly AppLogger _logger = new();
     private readonly NamedPipeClientService _pipeClient = new();
+    private readonly UpdateCheckService _updateCheckService = new();
+
+    private UpdateCheckResult? _pendingUpdate;
+    private bool _updateInProgress;
 
     private readonly List<DiagnosticsResult> _lastDiagnosticsResults = new();
-    private readonly List<ScenarioDecision> _lastScenarioDecisions = new();
+
+    private AppSettings _settings = new();
 
     private bool _protectionEnabled;
     private bool _diagnosticsRunning;
@@ -50,11 +55,107 @@ public partial class MainWindow : Window
         {
             await SynchronizeEngineStatusAsync();
 
-            if (!_protectionEnabled)
-            {
-                await RefreshEngineStartAvailabilityAsync();
-            }
+            // Always re-checked, even if ENGINE_STATUS already reported
+            // ENGINE_RUNNING: a config-invalid/blocked profile must never
+            // be allowed to keep showing a green "protection enabled" state.
+            await RefreshEngineStartAvailabilityAsync();
         }
+
+        _ = CheckForUpdateInBackgroundAsync();
+    }
+
+    private async Task CheckForUpdateInBackgroundAsync()
+    {
+        try
+        {
+            UpdateCheckResult? update =
+                await _updateCheckService.CheckForUpdateAsync();
+
+            if (update is null)
+            {
+                return;
+            }
+
+            _pendingUpdate = update;
+
+            UpdateBannerText.Text =
+                $"Доступно обновление {update.TagName}";
+
+            UpdateBanner.Visibility =
+                Visibility.Visible;
+
+            _logger.Info(
+                stage: "UpdateCheck",
+                result: $"UpdateAvailable; tag={update.TagName}");
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "UpdateCheck",
+                exception: exception);
+        }
+    }
+
+    private async void UpdateNowButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_updateInProgress ||
+            _pendingUpdate is null)
+        {
+            return;
+        }
+
+        _updateInProgress = true;
+        UpdateNowButton.IsEnabled = false;
+        UpdateBannerText.Text =
+            $"Скачиваем обновление {_pendingUpdate.TagName}...";
+
+        try
+        {
+            string stagingFolder =
+                await _updateCheckService.DownloadAndStageUpdateAsync(
+                    _pendingUpdate.DownloadUrl);
+
+            _logger.Info(
+                stage: "Update",
+                result: $"Downloaded; tag={_pendingUpdate.TagName}; staging={stagingFolder}");
+
+            _updateCheckService.LaunchElevatedApplyUpdate(
+                stagingFolder);
+
+            _logger.Info(
+                stage: "Update",
+                result: "ElevatedApplyLaunched");
+
+            Application.Current.Shutdown();
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "Update",
+                exception: exception);
+
+            UpdateBannerText.Text =
+                "Не удалось скачать обновление";
+
+            MessageBox.Show(
+                $"Не удалось применить обновление.\n\n{exception.Message}",
+                "Chillistica_game",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            _updateInProgress = false;
+            UpdateNowButton.IsEnabled = true;
+        }
+    }
+
+    private void DismissUpdateButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        UpdateBanner.Visibility =
+            Visibility.Collapsed;
     }
 
     private async Task CheckServiceAvailabilityAsync()
@@ -147,7 +248,7 @@ public partial class MainWindow : Window
                     "Управление включено";
 
                 StatusDescription.Text =
-                    "Служба хранит активное состояние. Внешний сетевой движок пока не подключён";
+                    "Обход активен для выбранных приложений";
 
                 ToggleProtectionButton.Content =
                     "Выключить защиту";
@@ -206,7 +307,12 @@ public partial class MainWindow : Window
                 return true;
 
             case "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL":
+                _protectionEnabled = false;
+
                 ToggleProtectionButton.IsEnabled = false;
+
+                ToggleProtectionButton.Content =
+                    "Включить защиту";
 
                 StatusIndicator.Fill =
                     new SolidColorBrush(
@@ -228,20 +334,25 @@ public partial class MainWindow : Window
                 return false;
 
             case "ENGINE_CONFIG_INVALID":
+                _protectionEnabled = false;
+
                 ToggleProtectionButton.IsEnabled = false;
+
+                ToggleProtectionButton.Content =
+                    "Включить защиту";
 
                 StatusIndicator.Fill =
                     new SolidColorBrush(
                         Color.FromRgb(140, 90, 77));
 
                 StatusText.Text =
-                    "Ошибка профиля";
+                    "Профиль недействителен";
 
                 StatusDescription.Text =
-                    "Активный профиль не прошёл проверку";
+                    "Движок не запускался. Активный профиль не прошёл проверку";
 
                 EventText.Text =
-                    "Служба использует fallback. Подробности доступны по F9";
+                    "Проверка START_ENGINE будет отклонена службой. Подробности доступны по F9";
 
                 _logger.Info(
                     stage: "EngineCanStart",
@@ -428,82 +539,60 @@ public partial class MainWindow : Window
             int runningApps =
                 processStatuses.Count(status => status.IsRunning);
 
-            EventText.Text =
-                $"Запущенных известных процессов: {runningApps}. Проверяем соединения";
+            List<string> checkedAppIds =
+                GetCheckedAppIds();
 
-            List<DiagnosticsTarget> targets =
-                BuildDiagnosticsTargets();
-
-            List<DiagnosticsResult> results = new();
-
-            for (int index = 0; index < targets.Count; index++)
-            {
-                DiagnosticsTarget target = targets[index];
-
-                EventText.Text =
-                    $"Проверка {target.ServiceName}: {index + 1} из {targets.Count}";
-
-                DiagnosticsResult directResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: false);
-
-                results.Add(directResult);
-
-                DiagnosticsResult proxyResult =
-                    await _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: true);
-
-                results.Add(proxyResult);
-            }
-
-            _lastDiagnosticsResults.Clear();
-            _lastDiagnosticsResults.AddRange(results);
-
-            IReadOnlyList<ScenarioDecision> decisions =
-                _scenarioPlanner.BuildDecisions(results);
-
-            _lastScenarioDecisions.Clear();
-            _lastScenarioDecisions.AddRange(decisions);
-
-            UpdateScenarioLabels(decisions);
-
-            int dpiCandidates =
-                decisions.Count(decision =>
-                    decision.RecommendedMode.Contains(
-                        "DPI",
-                        StringComparison.OrdinalIgnoreCase));
-
-            int proxyCandidates =
-                decisions.Count(decision =>
-                    decision.RecommendedMode.Contains(
-                        "Proxy",
-                        StringComparison.OrdinalIgnoreCase));
-
-            EventText.Text =
-                "Передаём службе команду запуска";
-
-            string engineResponse =
-                await _pipeClient.StartEngineAsync();
-
-            if (engineResponse.Equals(
-                    "ENGINE_BLOCKED_PROFILE_REQUIRES_APPROVAL",
-                    StringComparison.OrdinalIgnoreCase))
+            if (checkedAppIds.Count == 0)
             {
                 throw new InvalidOperationException(
-                    "Профиль требует явного разрешения на запуск. Запуск заблокирован службой.");
+                    "Выбери хотя бы один профиль приложения.");
             }
 
-            bool engineAccepted =
-                engineResponse.Equals(
-                    "ENGINE_STARTED",
-                    StringComparison.OrdinalIgnoreCase) ||
-                engineResponse.Equals(
-                    "ENGINE_ALREADY_RUNNING",
-                    StringComparison.OrdinalIgnoreCase);
+            EventText.Text =
+                $"Запущенных известных процессов: {runningApps}. Проверяем соединения и включаем обход";
 
-            if (!engineAccepted)
+            var orchestrator =
+                new StrategyOrchestrator(
+                    _pipeClient,
+                    _diagnosticsService);
+
+            (bool engineStarted, string engineResponse, IReadOnlyList<AppProtectionResult> appResults) =
+                await orchestrator.EnableAsync(
+                    checkedAppIds,
+                    _settings.LastGoodStrategyIndex);
+
+            _settingsService.Save(
+                _settings);
+
+            UpdateScenarioLabelsFromProtectionResults(
+                appResults);
+
+            if (engineResponse.Equals(
+                    "ALL_DIRECT_NO_BYPASS_NEEDED",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                _protectionEnabled = false;
+
+                StatusText.Text =
+                    "Защита не нужна";
+
+                StatusDescription.Text =
+                    "Все выбранные сервисы уже доступны напрямую";
+
+                ToggleProtectionButton.Content =
+                    "Включить защиту";
+
+                EventText.Text =
+                    "Обход не применялся: прямое соединение уже работает";
+
+                _logger.Info(
+                    stage: "ProtectionAnalysis",
+                    result: "Completed; allDirectNoBypassNeeded=true");
+
+                return;
+            }
+
+            if (!engineStarted)
             {
                 throw new InvalidOperationException(
                     $"Служба отклонила запуск: {engineResponse}");
@@ -541,18 +630,27 @@ public partial class MainWindow : Window
                 "Управление включено";
 
             StatusDescription.Text =
-                "Сценарии рассчитаны и состояние службы включено. Внешний сетевой движок пока не подключён";
+                "Обход активен для выбранных приложений";
 
             ToggleProtectionButton.Content =
                 "Выключить защиту";
 
+            int activeCount =
+                appResults.Count(result => result.Outcome == AppProtectionOutcome.Active);
+
+            int skippedCount =
+                appResults.Count(result => result.Outcome == AppProtectionOutcome.Skipped);
+
+            int bestEffortCount =
+                appResults.Count(result => result.Outcome == AppProtectionOutcome.BestEffortFailed);
+
             EventText.Text =
-                $"Готово: сценариев {decisions.Count}, DPI-кандидатов {dpiCandidates}, proxy fallback {proxyCandidates}";
+                $"Готово: активно {activeCount}, уже доступно напрямую {skippedCount}, best-effort {bestEffortCount}";
 
             _logger.Info(
                 stage: "ProtectionAnalysis",
                 result:
-                    $"Completed; engineResponse={engineResponse}; scenarios={decisions.Count}; dpi={dpiCandidates}; proxy={proxyCandidates}");
+                    $"Completed; engineResponse={engineResponse}; active={activeCount}; skipped={skippedCount}; bestEffort={bestEffortCount}");
         }
         catch (Exception ex)
         {
@@ -790,7 +888,7 @@ public partial class MainWindow : Window
             _diagnosticsRunning = false;
 
             StatusDescription.Text = _protectionEnabled
-                ? "Состояние службы включено. Внешний сетевой движок пока не подключён"
+                ? "Обход активен для выбранных приложений"
                 : "Сетевой движок пока не запущен";
         }
     }
@@ -926,20 +1024,20 @@ public partial class MainWindow : Window
 
     private void LoadSettings()
     {
-        AppSettings settings =
+        _settings =
             _settingsService.Load();
 
         YouTubeProfile.IsChecked =
-            settings.YouTubeEnabled;
+            _settings.YouTubeEnabled;
 
         DiscordProfile.IsChecked =
-            settings.DiscordEnabled;
+            _settings.DiscordEnabled;
 
         RobloxProfile.IsChecked =
-            settings.RobloxEnabled;
+            _settings.RobloxEnabled;
 
         FortniteProfile.IsChecked =
-            settings.FortniteEnabled;
+            _settings.FortniteEnabled;
 
         EventText.Text =
             "Готово к настройке";
@@ -947,32 +1045,29 @@ public partial class MainWindow : Window
         _logger.Info(
             stage: "Settings",
             result:
-                $"Loaded; schema={settings.SchemaVersion}");
+                $"Loaded; schema={_settings.SchemaVersion}");
     }
 
     private void SaveSettings()
     {
-        var settings = new AppSettings
-        {
-            YouTubeEnabled =
-                YouTubeProfile.IsChecked == true,
+        _settings.YouTubeEnabled =
+            YouTubeProfile.IsChecked == true;
 
-            DiscordEnabled =
-                DiscordProfile.IsChecked == true,
+        _settings.DiscordEnabled =
+            DiscordProfile.IsChecked == true;
 
-            RobloxEnabled =
-                RobloxProfile.IsChecked == true,
+        _settings.RobloxEnabled =
+            RobloxProfile.IsChecked == true;
 
-            FortniteEnabled =
-                FortniteProfile.IsChecked == true
-        };
+        _settings.FortniteEnabled =
+            FortniteProfile.IsChecked == true;
 
-        _settingsService.Save(settings);
+        _settingsService.Save(_settings);
 
         _logger.Info(
             stage: "Settings",
             result:
-                $"Saved; YouTube={settings.YouTubeEnabled}; Discord={settings.DiscordEnabled}; Roblox={settings.RobloxEnabled}; Fortnite={settings.FortniteEnabled}");
+                $"Saved; YouTube={_settings.YouTubeEnabled}; Discord={_settings.DiscordEnabled}; Roblox={_settings.RobloxEnabled}; Fortnite={_settings.FortniteEnabled}");
     }
 
     private void MainWindow_Closing(
@@ -1060,6 +1155,51 @@ public partial class MainWindow : Window
         return "Требуется дополнительная проверка";
     }
 
+    private void UpdateScenarioLabelsFromProtectionResults(
+        IReadOnlyList<AppProtectionResult> results)
+    {
+        YouTubeScenarioText.Text =
+            FindProtectionText(results, "youtube");
+
+        DiscordScenarioText.Text =
+            FindProtectionText(results, "discord");
+
+        RobloxScenarioText.Text =
+            FindProtectionText(results, "roblox");
+
+        FortniteScenarioText.Text =
+            FindProtectionText(results, "fortnite");
+    }
+
+    private static string FindProtectionText(
+        IReadOnlyList<AppProtectionResult> results,
+        string appId)
+    {
+        AppProtectionResult? result =
+            results.FirstOrDefault(item =>
+                item.AppId == appId);
+
+        if (result is null)
+        {
+            return "Не выбрано";
+        }
+
+        return result.Outcome switch
+        {
+            AppProtectionOutcome.Skipped =>
+                "Уже доступно напрямую",
+
+            AppProtectionOutcome.Active =>
+                $"Активно · стратегия {result.StrategyIndex + 1}/{result.StrategyCount}",
+
+            AppProtectionOutcome.BestEffortFailed =>
+                "Best effort · не подтверждено",
+
+            _ =>
+                "Неизвестно"
+        };
+    }
+
     private void ResetScenarioLabels()
     {
         const string defaultText =
@@ -1134,8 +1274,8 @@ public partial class MainWindow : Window
             string usesWinDivert =
                 GetJsonValue(root, "UsesWinDivert");
 
-            string allowUnsafeStart =
-                GetJsonValue(root, "AllowUnsafeStart");
+            string engineTrusted =
+                GetJsonValue(root, "EngineTrusted");
 
             string stopTimeoutSeconds =
                 GetJsonValue(root, "StopTimeoutSeconds");
@@ -1188,8 +1328,8 @@ public partial class MainWindow : Window
             report.AppendLine(usesWinDivert);
             report.AppendLine();
 
-            report.AppendLine("AllowUnsafeStart:");
-            report.AppendLine(allowUnsafeStart);
+            report.AppendLine("EngineTrusted:");
+            report.AppendLine(engineTrusted);
             report.AppendLine();
 
             report.AppendLine("StopTimeoutSeconds:");
@@ -1209,7 +1349,7 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "EngineConfig",
                 result:
-                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}; allowUnsafeStart={allowUnsafeStart}; fileHashesCount={fileHashesCount}");
+                    $"Loaded; profileId={profileId}; source={configurationSource}; warning={configurationWarning}; mode={mode}; executable={executable}; requiresAdmin={requiresAdmin}; usesWinDivert={usesWinDivert}; engineTrusted={engineTrusted}; fileHashesCount={fileHashesCount}");
 
             MessageBox.Show(
                 report.ToString(),
@@ -1476,100 +1616,41 @@ public partial class MainWindow : Window
         }
     }
 
-    private List<DiagnosticsTarget> BuildDiagnosticsTargets()
+    private List<string> GetCheckedAppIds()
     {
-        List<DiagnosticsTarget> targets = new();
+        List<string> appIds = new();
 
         if (YouTubeProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "YouTube Web",
-                Host = "www.youtube.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Google Video",
-                Host = "googlevideo.com"
-            });
+            appIds.Add("youtube");
         }
 
         if (DiscordProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Discord Web",
-                Host = "discord.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Discord Gateway",
-                Host = "gateway.discord.gg"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Discord CDN",
-                Host = "cdn.discordapp.com"
-            });
+            appIds.Add("discord");
         }
 
         if (RobloxProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Roblox Web",
-                Host = "www.roblox.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Roblox API",
-                Host = "games.roblox.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Roblox Presence",
-                Host = "presence.roblox.com"
-            });
+            appIds.Add("roblox");
         }
 
         if (FortniteProfile.IsChecked == true)
         {
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic Web",
-                Host = "www.epicgames.com"
-            });
+            appIds.Add("fortnite");
+        }
 
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic Account",
-                Host = "account-public-service-prod.ol.epicgames.com"
-            });
+        return appIds;
+    }
 
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic Lightswitch",
-                Host = "lightswitch-public-service-prod.ol.epicgames.com"
-            });
+    private List<DiagnosticsTarget> BuildDiagnosticsTargets()
+    {
+        List<DiagnosticsTarget> targets = new();
 
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Fortnite Public Service",
-                Host = "fortnite-public-service-prod11.ol.epicgames.com"
-            });
-
-            targets.Add(new DiagnosticsTarget
-            {
-                ServiceName = "Epic XMPP",
-                Host = "xmpp-service-prod.ol.epicgames.com",
-                Port = 5222,
-                CheckHttps = false
-            });
+        foreach (string appId in GetCheckedAppIds())
+        {
+            targets.AddRange(
+                DiagnosticsTargetCatalog.GetTargetsForApp(appId));
         }
 
         return targets;

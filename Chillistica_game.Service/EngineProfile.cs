@@ -2,7 +2,7 @@
 
 public sealed class EngineProfile
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } =
         CurrentSchemaVersion;
@@ -28,8 +28,6 @@ public sealed class EngineProfile
     public bool RequiresAdmin { get; init; }
 
     public bool UsesWinDivert { get; init; }
-
-    public bool AllowUnsafeStart { get; init; }
 
     public int StopTimeoutSeconds { get; init; } =
         2;

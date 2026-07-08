@@ -2,6 +2,8 @@
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
+using System.Linq;
 
 namespace Chillistica_game.Service;
 
@@ -11,7 +13,12 @@ public sealed class NamedPipeServer : BackgroundService
         "Chillistica_game.Control";
 
     public const string ProtocolVersion =
-        "1";
+        "2";
+
+    private const int MaxConcurrentConnections = 4;
+
+    private static readonly TimeSpan IdleReadTimeout =
+        TimeSpan.FromSeconds(5);
 
     private readonly ServiceLogger _logger;
     private readonly EngineProcessManager _engineProcessManager;
@@ -29,8 +36,24 @@ public sealed class NamedPipeServer : BackgroundService
     {
         _logger.Info(
             stage: "NamedPipe",
-            result: $"Listening; pipe={PipeName}");
+            result:
+                $"Listening; pipe={PipeName}; instances={MaxConcurrentConnections}");
 
+        var acceptLoops =
+            Enumerable.Range(0, MaxConcurrentConnections)
+                .Select(_ => AcceptLoopAsync(stoppingToken));
+
+        await Task.WhenAll(
+            acceptLoops);
+
+        _logger.Info(
+            stage: "NamedPipe",
+            result: "Stopped");
+    }
+
+    private async Task AcceptLoopAsync(
+        CancellationToken stoppingToken)
+    {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -62,10 +85,6 @@ public sealed class NamedPipeServer : BackgroundService
                 }
             }
         }
-
-        _logger.Info(
-            stage: "NamedPipe",
-            result: "Stopped");
     }
 
     private async Task HandleSingleConnectionAsync(
@@ -78,7 +97,7 @@ public sealed class NamedPipeServer : BackgroundService
             NamedPipeServerStreamAcl.Create(
                 pipeName: PipeName,
                 direction: PipeDirection.InOut,
-                maxNumberOfServerInstances: 1,
+                maxNumberOfServerInstances: MaxConcurrentConnections,
                 transmissionMode: PipeTransmissionMode.Byte,
                 options: PipeOptions.Asynchronous,
                 inBufferSize: 4096,
@@ -111,9 +130,31 @@ public sealed class NamedPipeServer : BackgroundService
                 AutoFlush = true
             };
 
-        string? command =
-            await reader.ReadLineAsync(
-                stoppingToken);
+        string? command;
+
+        using (CancellationTokenSource readCts =
+                   CancellationTokenSource.CreateLinkedTokenSource(
+                       stoppingToken))
+        {
+            readCts.CancelAfter(
+                IdleReadTimeout);
+
+            try
+            {
+                command =
+                    await reader.ReadLineAsync(
+                        readCts.Token);
+            }
+            catch (OperationCanceledException)
+                when (!stoppingToken.IsCancellationRequested)
+            {
+                _logger.Info(
+                    stage: "NamedPipeConnection",
+                    result: "IdleTimeout; disconnecting client");
+
+                return;
+            }
+        }
 
         string response =
             await HandleCommandAsync(
@@ -166,13 +207,30 @@ public sealed class NamedPipeServer : BackgroundService
         string? command,
         CancellationToken cancellationToken)
     {
-        string normalized =
-            command?
-                .Trim()
-                .ToUpperInvariant()
+        string trimmed =
+            command?.Trim()
             ?? string.Empty;
 
-        return normalized switch
+        if (trimmed.Length == 0)
+        {
+            return "ERROR EMPTY_COMMAND";
+        }
+
+        int spaceIndex =
+            trimmed.IndexOf(' ');
+
+        string verb =
+            (spaceIndex < 0
+                ? trimmed
+                : trimmed[..spaceIndex])
+            .ToUpperInvariant();
+
+        string argument =
+            spaceIndex < 0
+                ? string.Empty
+                : trimmed[(spaceIndex + 1)..].Trim();
+
+        return verb switch
         {
             "PING" =>
                 "PONG",
@@ -218,8 +276,14 @@ public sealed class NamedPipeServer : BackgroundService
                 await HandleStopEngineAsync(
                     cancellationToken),
 
-            "" =>
-                "ERROR EMPTY_COMMAND",
+            "START_ENGINE_APPS" =>
+                await HandleStartEngineAppsAsync(
+                    argument,
+                    cancellationToken),
+
+            "GET_APP_STRATEGY_CATALOG" =>
+                HandleGetAppStrategyCatalog(
+                    argument),
 
             _ =>
                 "ERROR UNKNOWN_COMMAND"
@@ -252,6 +316,129 @@ public sealed class NamedPipeServer : BackgroundService
             result: response);
 
         return response;
+    }
+
+    private async Task<string> HandleStartEngineAppsAsync(
+        string argument,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<(string AppId, int StrategyIndex)> selections;
+
+        try
+        {
+            selections =
+                ParseAppSelections(
+                    argument);
+        }
+        catch (Exception exception)
+        {
+            return $"ENGINE_COMPOSE_ERROR PARSE: {exception.Message}";
+        }
+
+        EngineOptions composedOptions;
+
+        try
+        {
+            string composedProfilePath =
+                ProfileComposer.Compose(
+                    selections);
+
+            composedOptions =
+                EngineProfileLoader.LoadAndValidateExplicit(
+                    composedProfilePath);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error(
+                stage: "EngineProfileCompose",
+                exception: exception);
+
+            return $"ENGINE_COMPOSE_ERROR: {exception.Message}";
+        }
+
+        string stopResult =
+            await _engineProcessManager.StopAsync(
+                cancellationToken);
+
+        _logger.Info(
+            stage: "EngineProcessCommand",
+            result: $"StopBeforeApply; {stopResult}");
+
+        string applyResult =
+            await _engineProcessManager.ApplyProfileAsync(
+                composedOptions,
+                cancellationToken);
+
+        _logger.Info(
+            stage: "EngineProcessCommand",
+            result: applyResult);
+
+        if (!applyResult.Equals(
+                "ENGINE_PROFILE_APPLIED",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return applyResult;
+        }
+
+        return await HandleStartEngineAsync(
+            cancellationToken);
+    }
+
+    private string HandleGetAppStrategyCatalog(
+        string appId)
+    {
+        if (string.IsNullOrWhiteSpace(appId))
+        {
+            return "ERROR EMPTY_APP_ID";
+        }
+
+        try
+        {
+            AppStrategyCatalog catalog =
+                ProfileComposer.LoadCatalog(
+                    appId.Trim());
+
+            return JsonSerializer.Serialize(
+                catalog);
+        }
+        catch (Exception exception)
+        {
+            return $"ERROR CATALOG: {exception.Message}";
+        }
+    }
+
+    private static IReadOnlyList<(string AppId, int StrategyIndex)> ParseAppSelections(
+        string argument)
+    {
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            throw new ArgumentException(
+                "No app selections provided.");
+        }
+
+        var selections =
+            new List<(string, int)>();
+
+        foreach (string entry in argument.Split(
+                     ',',
+                     StringSplitOptions.RemoveEmptyEntries |
+                     StringSplitOptions.TrimEntries))
+        {
+            string[] parts =
+                entry.Split(':', 2);
+
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[1], out int strategyIndex))
+            {
+                throw new ArgumentException(
+                    $"Invalid app selection entry: '{entry}'. Expected format 'appid:index'.");
+            }
+
+            selections.Add(
+                (parts[0].Trim().ToLowerInvariant(), strategyIndex));
+        }
+
+        return selections;
     }
 }
 

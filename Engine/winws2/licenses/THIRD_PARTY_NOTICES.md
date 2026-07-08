@@ -4,6 +4,7 @@ This bundle contains components from:
 
 - zapret2 / zapret-win-bundle by bol-van
 - WinDivert by Basil Yuan
+- Discord voice/STUN UDP port numbers referenced from Flowseal/zapret-discord-youtube (MIT) — see `FLOWSEAL_NOTICE.md`
 
 WinDivert is distributed under the GNU Lesser General Public License version 3.
 

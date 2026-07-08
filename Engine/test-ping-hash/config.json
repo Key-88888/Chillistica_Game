@@ -1,5 +1,5 @@
 ﻿{
-    "SchemaVersion":  1,
+    "SchemaVersion":  2,
     "ProfileId":  "test-ping-hash",
     "DisplayName":  "Test process lifecycle with SHA256",
     "Mode":  "Test",
@@ -8,7 +8,6 @@
     "WorkingDirectory":  ".",
     "RequiresAdmin":  false,
     "UsesWinDivert":  false,
-    "AllowUnsafeStart":  false,
     "StopTimeoutSeconds":  2,
     "KillTimeoutSeconds":  5,
     "FileHashes":  [

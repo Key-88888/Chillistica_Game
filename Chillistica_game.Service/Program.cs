@@ -14,6 +14,14 @@ EngineOptions engineOptions =
     EngineProfileLoader.LoadOrFallback(
         builder.Configuration);
 
+if (!string.IsNullOrWhiteSpace(engineOptions.ConfigurationWarning))
+{
+    new ServiceLogger().Error(
+        stage: "EngineProfileLoad",
+        exception: new InvalidOperationException(
+            engineOptions.ConfigurationWarning));
+}
+
 builder.Services.AddSingleton<IOptions<EngineOptions>>(
     Options.Create(
         engineOptions));

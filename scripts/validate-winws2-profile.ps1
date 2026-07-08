@@ -55,9 +55,9 @@ Add-Check `
     -Details "Actual=$($profile.UsesWinDivert)"
 
 Add-Check `
-    -Name "AllowUnsafeStart" `
-    -Passed ($profile.AllowUnsafeStart -eq $false) `
-    -Details "Actual=$($profile.AllowUnsafeStart)"
+    -Name "ExecutableUnderTrustedBinDirectory" `
+    -Passed ((Join-Path $projectRoot $profile.ExecutablePath).StartsWith((Join-Path $projectRoot "Engine\winws2\bin"), [StringComparison]::OrdinalIgnoreCase)) `
+    -Details "Actual=$($profile.ExecutablePath)"
 
 $arguments = [string]$profile.Arguments
 

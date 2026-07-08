@@ -1,0 +1,33 @@
+{
+    "SchemaVersion": 1,
+    "AppId": "youtube",
+    "DisplayName": "YouTube",
+    "Strategies": [
+        {
+            "StrategyId": "youtube-fake-tls-multidisorder",
+            "Description": "TLS ClientHello fake + multidisorder (migrated from youtube-https-active.json)",
+            "TcpPorts": "443",
+            "UdpPorts": "",
+            "UsesUdp": false,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')\" --filter-tcp=443 --filter-l7=tls --hostlist=\"files\\list-youtube.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
+                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
+                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "D7DFCB6D933E10D48B0B8B0217F3EAE3BEDDB572E206AF97D7E30FD90980D9EC",
+                    "Required": true
+                }
+            ]
+        }
+    ]
+}

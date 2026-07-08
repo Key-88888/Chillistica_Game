@@ -28,6 +28,6 @@ Files from arm64, win7 and windivert-hide were not imported.
 The files must not be executed until:
 
 - the profile contains verified SHA256 entries;
-- AllowUnsafeStart remains false during preflight;
+- the resolved executable path matches `Engine\winws2\trusted-manifest.json` (pinned, installer-controlled — see `EngineTrustManifestLoader`);
 - the command line is reviewed;
 - network rollback is implemented and tested.

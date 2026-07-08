@@ -41,6 +41,8 @@ $activeProfile = [string]$appsettings.EngineProfile.ActiveProfilePath
 
 Write-Host "ActiveProfilePath=$activeProfile"
 
+$assemblyVersion = $Version -replace '^v', ''
+
 $artifacts = Join-Path $repoRoot "artifacts"
 $releaseDir = Join-Path $artifacts "release"
 $staging = Join-Path $artifacts "staging"
@@ -61,6 +63,7 @@ dotnet publish `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:Version=$assemblyVersion `
     -o $servicePublishDir
 
 if (-not (Test-Path (Join-Path $servicePublishDir "Chillistica_game.Service.exe"))) {
@@ -76,6 +79,7 @@ dotnet publish `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:Version=$assemblyVersion `
     -o $appPublishDir
 
 if (-not (Test-Path (Join-Path $appPublishDir "Chillistica_game.App.exe"))) {
