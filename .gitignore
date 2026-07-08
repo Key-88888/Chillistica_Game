@@ -5,7 +5,11 @@
 *.user
 *.suo
 backup-*/
+*.backup-*
 *-report-*.txt
+*-current.txt
+*-inspection.txt
+patch-*.ps1
 logger-inspection.txt
 publish/
 artifacts/
