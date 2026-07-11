@@ -11,7 +11,7 @@ public sealed class AppStrategyCandidate
     public string ArgumentsFragment { get; init; } =
         string.Empty;
 
-    // Process-wide --wf-tcp-out/--wf-udp-out ports; composer unions these across all selected strategies (not per --new chain).
+    // Process-wide --wf-tcp/--wf-udp WinDivert filter ports; composer unions these across all selected strategies (not per --new chain).
     public string TcpPorts { get; init; } =
         string.Empty;
 

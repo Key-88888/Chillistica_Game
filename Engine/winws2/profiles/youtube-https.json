@@ -1,45 +1,40 @@
-﻿{
-    "SchemaVersion":  2,
-    "ProfileId":  "winws2-youtube-https",
-    "DisplayName":  "winws2 YouTube HTTPS only",
-    "Mode":  "Winws2Preview",
-    "ExecutablePath":  "Engine\\winws2\\bin\\winws2.exe",
-    "Arguments":  "--wf-tcp-out=443 --lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,\u0027rnd,rndsni\u0027)\" --filter-tcp=443 --filter-l7=tls --hostlist=\"files\\list-youtube.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld",
-    "WorkingDirectory":  "Engine\\winws2",
-    "RequiresAdmin":  true,
-    "UsesWinDivert":  true,
-    "StopTimeoutSeconds":  3,
-    "KillTimeoutSeconds":  5,
-    "FileHashes":  [
-                       {
-                           "Path":  "Engine\\winws2\\bin\\winws2.exe",
-                           "Sha256":  "A3331A4C1BDC6653E392633E6365C53B764034561223BB872272D95F8F41C5BD",
-                           "Required":  true
-                       },
-                       {
-                           "Path":  "Engine\\winws2\\bin\\WinDivert.dll",
-                           "Sha256":  "06C3F201B815A5798816E8C15B925B28F3C38E5ABA31EFEDEC10AF9E598CE723",
-                           "Required":  true
-                       },
-                       {
-                           "Path":  "Engine\\winws2\\bin\\WinDivert64.sys",
-                           "Sha256":  "8DA085332782708D8767BCACE5327A6EC7283C17CFB85E40B03CD2323A90DDC2",
-                           "Required":  true
-                       },
-                       {
-                           "Path":  "Engine\\winws2\\lua\\zapret-lib.lua",
-                           "Sha256":  "5B62113DA6F61735D446221161B31653DF5510CBE14E15AC55C6BD2AB5BFEF0D",
-                           "Required":  true
-                       },
-                       {
-                           "Path":  "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                           "Sha256":  "BE34771B6A00246C911BB6AB4B7552EE9B1A597DBC144EE598E17F67FCDA5D99",
-                           "Required":  true
-                       },
-                       {
-                           "Path":  "Engine\\winws2\\files\\list-youtube.txt",
-                           "Sha256":  "47EA8A9CA11EB9AD833E5F22D12E8857400880E8F555F45687230CE8BA57D299",
-                           "Required":  true
-                       }
-                   ]
+{
+    "SchemaVersion": 2,
+    "ProfileId": "winws-youtube-https",
+    "DisplayName": "winws YouTube HTTPS only",
+    "Mode": "Winws1Preview",
+    "ExecutablePath": "Engine\\winws2\\bin\\winws.exe",
+    "Arguments": "--wf-tcp=443 --filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
+    "WorkingDirectory": "Engine\\winws2",
+    "RequiresAdmin": true,
+    "UsesWinDivert": true,
+    "StopTimeoutSeconds": 3,
+    "KillTimeoutSeconds": 5,
+    "FileHashes": [
+        {
+            "Path": "Engine\\winws2\\bin\\winws.exe",
+            "Sha256": "2DA71E80878DC270AC83F5893ECBB841F9752A57F1DA8FF9325636B4346BC632",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\bin\\cygwin1.dll",
+            "Sha256": "103104A52E5293CE418944725DF19E2BF81AD9269B9A120D71D39028E821499B",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\bin\\WinDivert.dll",
+            "Sha256": "06C3F201B815A5798816E8C15B925B28F3C38E5ABA31EFEDEC10AF9E598CE723",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\bin\\WinDivert64.sys",
+            "Sha256": "8DA085332782708D8767BCACE5327A6EC7283C17CFB85E40B03CD2323A90DDC2",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\files\\list-youtube.txt",
+            "Sha256": "D7DFCB6D933E10D48B0B8B0217F3EAE3BEDDB572E206AF97D7E30FD90980D9EC",
+            "Required": true
+        }
+    ]
 }

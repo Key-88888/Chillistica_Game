@@ -41,7 +41,7 @@ function Add-Check {
 
 Add-Check `
     -Name "ProfileId" `
-    -Passed ($profile.ProfileId -eq "winws2-youtube-https") `
+    -Passed ($profile.ProfileId -eq "winws-youtube-https") `
     -Details "Actual=$($profile.ProfileId)"
 
 Add-Check `
@@ -64,9 +64,9 @@ $arguments = [string]$profile.Arguments
 Add-Check `
     -Name "TCP443Only" `
     -Passed (
-        $arguments -match '--wf-tcp-out=443' -and
+        $arguments -match '--wf-tcp=443' -and
         $arguments -match '--filter-tcp=443' -and
-        $arguments -match '--filter-l7=tls'
+        $arguments -match '--dpi-desync='
     ) `
     -Details $arguments
 
@@ -114,7 +114,7 @@ foreach ($hashEntry in @($profile.FileHashes)) {
 }
 
 Write-Host ""
-Write-Host "===== WINWS2 PROFILE VALIDATION =====" -ForegroundColor Cyan
+Write-Host "===== WINWS PROFILE VALIDATION =====" -ForegroundColor Cyan
 
 $checks |
     Format-Table -AutoSize -Wrap

@@ -4,24 +4,35 @@
     "DisplayName": "Discord",
     "Strategies": [
         {
-            "StrategyId": "discord-fake-tls-multidisorder",
-            "Description": "TLS ClientHello fake + multidisorder for discord.com/gateway/CDN web+API traffic (same lua-desync mechanism already verified working for YouTube in this build)",
-            "TcpPorts": "443,8443",
+            "StrategyId": "discord-full-tcp-quic-voice",
+            "Description": "Full Discord coverage in one strategy: TCP 443 web/API/CDN (proven TLS fake+multidisorder), QUIC on UDP 443, and voice via winws1's native --filter-l7=discord,stun on Discord voice UDP ports. The TCP part is KnownGood; the voice/STUN part is best-effort but non-fatal (only L7-matching packets are desynced, all other UDP passes through). Voice ports 19294-19344,50000-50100 sourced from Flowseal/zapret-discord-youtube (see licenses/FLOWSEAL_NOTICE.md).",
+            "TcpPorts": "443",
+            "UdpPorts": "443,19294-19344,50000-50100",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-discord.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-discord.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\" --new --filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --dpi-desync=fake --dpi-desync-repeats=6",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-discord.txt",
+                    "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "discord-tcp-only",
+            "Description": "Fallback: TCP 443 web/API/CDN only (proven TLS fake+multidisorder), no UDP. Use if the full strategy misbehaves.",
+            "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
             "Confidence": "KnownGood",
-            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')\" --filter-tcp=443,8443 --filter-l7=tls --hostlist=\"files\\list-discord.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-discord.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
             "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
-                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
-                    "Required": true
-                },
                 {
                     "Path": "Engine\\winws2\\files\\list-discord.txt",
                     "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",
@@ -31,49 +42,13 @@
         },
         {
             "StrategyId": "discord-multidisorder-only",
-            "Description": "Lighter fallback: multidisorder only, no fake TLS ClientHello (for DPI that only needs packet reordering)",
-            "TcpPorts": "443,8443",
+            "Description": "Lightest fallback: multidisorder only, no fake TLS ClientHello, for DPI that only needs packet reordering.",
+            "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
             "Confidence": "KnownGood",
-            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --filter-tcp=443,8443 --filter-l7=tls --hostlist=\"files\\list-discord.txt\" --lua-desync=multidisorder:pos=1,midsld",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-discord.txt\" --dpi-desync=multidisorder --dpi-desync-split-pos=1,midsld",
             "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
-                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\list-discord.txt",
-                    "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "discord-web-plus-voice-udp",
-            "Description": "BEST EFFORT, NOT FIELD-VALIDATED: adds Discord voice/STUN UDP ports 19294-19344,50000-50100 (ports confirmed against the Flowseal/zapret-discord-youtube project) with a generic lua fake desync. --filter-l7=stun support in this specific winws2/lua build has NOT been verified — may no-op or error; relies on the auto-fallback ladder if so",
-            "TcpPorts": "443,8443",
-            "UdpPorts": "19294-19344,50000-50100",
-            "UsesUdp": true,
-            "Confidence": "BestEffort",
-            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')\" --filter-tcp=443,8443 --filter-l7=tls --hostlist=\"files\\list-discord.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld --new --filter-udp=19294-19344,50000-50100 --filter-l7=stun --lua-desync=fake:repeats=6",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
-                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
-                    "Required": true
-                },
                 {
                     "Path": "Engine\\winws2\\files\\list-discord.txt",
                     "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",

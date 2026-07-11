@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-Chillistica_game.Service-0f47c249-0a9a-4842-b074-31377bb42e3d</UserSecretsId>
-    <Version>0.1.0</Version>
+    <Version>0.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,21 +27,14 @@
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
 
-    <Content Include="..\Engine\winws2\lua\*.lua">
-      <Link>Engine\winws2\lua\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-
-    <Content Include="..\Engine\winws2\files\*.txt">
+    <Content Include="..\Engine\winws2\files\*">
       <Link>Engine\winws2\files\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
 
-    <Content Include="..\Engine\winws2\licenses\*.md">
+    <Content Include="..\Engine\winws2\licenses\*.md;..\Engine\winws2\licenses\*.txt">
       <Link>Engine\winws2\licenses\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

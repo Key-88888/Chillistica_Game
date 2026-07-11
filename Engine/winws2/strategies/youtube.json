@@ -4,30 +4,51 @@
     "DisplayName": "YouTube",
     "Strategies": [
         {
-            "StrategyId": "youtube-fake-tls-multidisorder",
-            "Description": "TLS ClientHello fake + multidisorder (migrated from youtube-https-active.json)",
+            "StrategyId": "youtube-fake-multidisorder-tcp",
+            "Description": "Proven-working YouTube TLS bypass on TCP 443 (bol-van preset1 YouTube chain, empirically verified running + capturing on Win11 26200). fake,multidisorder + midsld split + md5sig fooling + google SNI.",
             "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
             "Confidence": "KnownGood",
-            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')\" --filter-tcp=443 --filter-l7=tls --hostlist=\"files\\list-youtube.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
             "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
-                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
-                    "Required": true
-                },
                 {
                     "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "D7DFCB6D933E10D48B0B8B0217F3EAE3BEDDB572E206AF97D7E30FD90980D9EC",
                     "Required": true
                 }
             ]
+        },
+        {
+            "StrategyId": "youtube-fake-multidisorder-tcp-plus-quic",
+            "Description": "Same TCP 443 chain plus QUIC (UDP 443) fake desync using google's QUIC Initial, matching bol-van preset1 in full. Helps when the browser prefers QUIC video transport.",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "D7DFCB6D933E10D48B0B8B0217F3EAE3BEDDB572E206AF97D7E30FD90980D9EC",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "youtube-generic-fake-multidisorder",
+            "Description": "Hostlist-less generic fallback for TCP 443 (preset1 second 443 strategy): fake,multidisorder + badseq,md5sig fooling. Applies to all 443 hosts, use only if the hostlist-scoped strategies fail.",
+            "TcpPorts": "443",
+            "UdpPorts": "",
+            "UsesUdp": false,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --dpi-desync=fake,multidisorder --dpi-desync-split-pos=midsld --dpi-desync-repeats=6 --dpi-desync-fooling=badseq,md5sig",
+            "FileHashes": []
         }
     ]
 }

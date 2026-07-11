@@ -4,24 +4,14 @@
     "DisplayName": "Fortnite / Epic Games",
     "Strategies": [
         {
-            "StrategyId": "fortnite-fake-tls-multidisorder-web",
-            "Description": "BEST EFFORT, NOT FIELD-VALIDATED: no well-documented public winws2 strategy exists for Fortnite/Epic. Covers only the web/account/matchmaking-service HTTPS surface (epicgames.com, ol.epicgames.com) with the YouTube-proven TLS fake+multidisorder mechanism; does not touch in-game UDP traffic",
+            "StrategyId": "fortnite-fake-multidisorder-web",
+            "Description": "BEST EFFORT, NOT FIELD-VALIDATED: no well-documented public winws strategy exists for Fortnite/Epic. Covers only the web/account/matchmaking-service HTTPS surface (epicgames.com, ol.epicgames.com) with the YouTube-proven TLS fake+multidisorder mechanism; does not touch in-game UDP traffic.",
             "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
             "Confidence": "BestEffort",
-            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')\" --filter-tcp=443 --filter-l7=tls --hostlist=\"files\\list-fortnite.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
             "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
-                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
-                    "Required": true
-                },
                 {
                     "Path": "Engine\\winws2\\files\\list-fortnite.txt",
                     "Sha256": "E67253D3296961E5E3C63DAE1A57C733160F241E38995F0AEAC0E10060E7ADD7",
@@ -31,23 +21,13 @@
         },
         {
             "StrategyId": "fortnite-web-plus-guessed-udp",
-            "Description": "BEST EFFORT, HIGH UNCERTAINTY: adds UDP ports 3478-3479,5060-5062,6250 (voice/party/STUN ports listed in Epic's own public port-forwarding guidance) with a generic lua fake desync. This does NOT include the 12000-65000 general game-traffic range from the same guidance (too broad to safely intercept) and has not been verified to actually improve Fortnite DPI bypass -- treat as a first guess for the auto-fallback ladder, not a confirmed fix",
+            "Description": "BEST EFFORT, HIGH UNCERTAINTY: adds UDP ports 3478-3479,5060-5062,6250 (voice/party/STUN ports from Epic's public port-forwarding guidance) via winws1's native --filter-l7=stun. Does NOT include the broad 12000-65000 game-traffic range (too wide to safely intercept) and is not verified to improve Fortnite DPI bypass -- a first guess for the auto-fallback ladder, not a confirmed fix.",
             "TcpPorts": "443",
             "UdpPorts": "3478-3479,5060-5062,6250",
             "UsesUdp": true,
             "Confidence": "BestEffort",
-            "ArgumentsFragment": "--lua-init=@\"lua\\zapret-lib.lua\" --lua-init=@\"lua\\zapret-antidpi.lua\" --lua-init=\"fake_default_tls = tls_mod(fake_default_tls,'rnd,rndsni')\" --filter-tcp=443 --filter-l7=tls --hostlist=\"files\\list-fortnite.txt\" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_md5:repeats=11:tls_mod=rnd,dupsid,sni=www.google.com --lua-desync=multidisorder:pos=1,midsld --new --filter-udp=3478-3479,5060-5062,6250 --filter-l7=stun --lua-desync=fake:repeats=6",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=3478-3479,5060-5062,6250 --filter-l7=stun --dpi-desync=fake --dpi-desync-repeats=6",
             "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-lib.lua",
-                    "Sha256": "73BFDAC0B5FCFF7F5576332F6B3AB954CB84D133FD856AE8E619D11AC8B093E5",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\lua\\zapret-antidpi.lua",
-                    "Sha256": "44A47666685840976A6BC34C120D3A7D18F959D6078BD00F520CBA9E90F24077",
-                    "Required": true
-                },
                 {
                     "Path": "Engine\\winws2\\files\\list-fortnite.txt",
                     "Sha256": "E67253D3296961E5E3C63DAE1A57C733160F241E38995F0AEAC0E10060E7ADD7",

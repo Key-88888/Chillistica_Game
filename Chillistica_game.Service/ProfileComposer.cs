@@ -70,13 +70,13 @@ public static class ProfileComposer
         if (tcpPorts.Count > 0)
         {
             headerParts.Add(
-                $"--wf-tcp-out={string.Join(",", tcpPorts)}");
+                $"--wf-tcp={string.Join(",", tcpPorts)}");
         }
 
         if (udpPorts.Count > 0)
         {
             headerParts.Add(
-                $"--wf-udp-out={string.Join(",", udpPorts)}");
+                $"--wf-udp={string.Join(",", udpPorts)}");
         }
 
         string arguments =
@@ -90,8 +90,8 @@ public static class ProfileComposer
             SchemaVersion = EngineProfile.CurrentSchemaVersion,
             ProfileId = "composed-" + string.Join("+", appIds),
             DisplayName = "Composed: " + string.Join(", ", appIds),
-            Mode = "Winws2Composed",
-            ExecutablePath = "Engine\\winws2\\bin\\winws2.exe",
+            Mode = "Winws1Composed",
+            ExecutablePath = "Engine\\winws2\\bin\\winws.exe",
             Arguments = arguments.Trim(),
             WorkingDirectory = "Engine\\winws2",
             RequiresAdmin = true,

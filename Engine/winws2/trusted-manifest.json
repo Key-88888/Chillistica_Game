@@ -2,8 +2,13 @@
     "SchemaVersion": 1,
     "TrustedBinaries": [
         {
-            "Path": "Engine\\winws2\\bin\\winws2.exe",
-            "Sha256": "A3331A4C1BDC6653E392633E6365C53B764034561223BB872272D95F8F41C5BD",
+            "Path": "Engine\\winws2\\bin\\winws.exe",
+            "Sha256": "2DA71E80878DC270AC83F5893ECBB841F9752A57F1DA8FF9325636B4346BC632",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\bin\\cygwin1.dll",
+            "Sha256": "103104A52E5293CE418944725DF19E2BF81AD9269B9A120D71D39028E821499B",
             "Required": true
         },
         {
