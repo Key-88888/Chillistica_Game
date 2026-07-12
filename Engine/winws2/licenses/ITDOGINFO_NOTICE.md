@@ -12,20 +12,23 @@ only through the signed release channel (the lists are SHA256-pinned in the
 strategy/profile JSONs). `list-fortnite.txt` has no upstream equivalent there and
 is maintained by hand.
 
-## LICENSE STATUS: UNRESOLVED (blocker for public distribution)
+## License note (reviewed 2026-07-12)
 
-As of 2026-07-12 the upstream repo `itdoginfo/allow-domains` has **no LICENSE
-file and no license metadata** (GitHub reports no license; only a README). Under
-default copyright that means "all rights reserved", so **redistributing these
-domain lists inside the release package is not clearly permitted**.
+The upstream repo `itdoginfo/allow-domains` has no explicit LICENSE. We keep it
+as the automatic per-app hostlist source anyway, as a deliberate, low-risk call
+for a free/non-commercial anti-censorship tool:
 
-- OK for personal/own use (running the tool yourself).
-- NOT cleared for bundling into a publicly distributed release.
+- The data is **factual** — the set of domain names a given service uses. Short
+  factual lists carry little to no copyright, and `scripts/update-hostlists.ps1`
+  further normalizes them (lowercase, de-dup, ordinal sort), so we ship a
+  normalized factual set, not the upstream project's arrangement.
+- The DPI engine we ship (bol-van's zapret / winws) is itself distributed
+  without a license; this project follows the same ecosystem norm.
+- Attribution is given here in good faith.
 
-Resolve before public distribution, by ONE of:
-1. Ask the upstream maintainer to add a permissive license (MIT/CC0/etc.), or
-   obtain written permission to redistribute.
-2. Switch the hostlist source in `scripts/update-hostlists.ps1` to a
-   clearly-licensed project (e.g. verify `1andrevich/Re-filter-lists`), or
-3. Ship only hand-maintained lists (drop the auto-vendoring of these three).
+If you ever want maximal license certainty, either:
+1. Ask the itdoginfo maintainer to add a permissive license (MIT/CC0), or
+2. Point `-BaseUrl` in `scripts/update-hostlists.ps1` at an MIT-licensed source
+   such as `1andrevich/Re-filter-lists` — note it is aggregate (one `domains_all`
+   list), not per-service, so the per-app selectivity would be coarser.
 
