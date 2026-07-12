@@ -14,7 +14,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-roblox.txt",
-                    "Sha256": "690C7BB65FE965F76519682BAB67BBA31F8F08D4CADD077C0B0DED4984A9B172",
+                    "Sha256": "ED43EEBBEAC34D2D3435135A241AF4FE3C6E9584A4D30CCA1E577AE7C7C35D73",
                     "Required": true
                 }
             ]
@@ -30,7 +30,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-roblox.txt",
-                    "Sha256": "690C7BB65FE965F76519682BAB67BBA31F8F08D4CADD077C0B0DED4984A9B172",
+                    "Sha256": "ED43EEBBEAC34D2D3435135A241AF4FE3C6E9584A4D30CCA1E577AE7C7C35D73",
                     "Required": true
                 }
             ]

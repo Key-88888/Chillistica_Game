@@ -1,0 +1,77 @@
+name: Watch upstream strategies
+
+# Weekly canary. Strategy ArgumentsFragments become the winws command line that
+# runs as LocalSystem, so they must NEVER be auto-pulled. Instead we watch the
+# upstream reference preset (bol-van/zapret-win-bundle) and, when it changes,
+# open an issue so a human reviews the new DPI arguments before we adapt + sign
+# them into a release. This does not modify any strategy.
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  watch:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compare upstream preset to snapshot
+        id: cmp
+        shell: pwsh
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          $url = "https://raw.githubusercontent.com/bol-van/zapret-win-bundle/master/zapret-winws/preset1_example.cmd"
+          $snapshotPath = ".github/upstream/preset1.sha256"
+          $tmp = Join-Path $env:RUNNER_TEMP "preset1.cmd"
+          Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30 -OutFile $tmp
+          $new = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToUpperInvariant()
+          $old = (Get-Content $snapshotPath -Raw).Trim().ToUpperInvariant()
+          Write-Host "old=$old"
+          Write-Host "new=$new"
+          if ($new -ne $old) {
+            "$new" | Set-Content $snapshotPath -NoNewline
+            "changed=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "newhash=$new"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "oldhash=$old"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            "changed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+
+      - name: Commit updated snapshot
+        if: steps.cmp.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/upstream/preset1.sha256
+          git commit -m "chore: upstream strategy preset changed (canary)"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Open review issue
+        if: steps.cmp.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $lines = @(
+            "The upstream reference DPI preset changed."
+            ""
+            "Source: bol-van/zapret-win-bundle  zapret-winws/preset1_example.cmd"
+            "Old SHA256: ${{ steps.cmp.outputs.oldhash }}"
+            "New SHA256: ${{ steps.cmp.outputs.newhash }}"
+            ""
+            "These are winws arguments that run as LocalSystem. Review the diff,"
+            "adapt improvements into Engine/winws2/strategies/*.json (native winws1"
+            "syntax, no file-writing flags), verify with 'winws --dry-run' + the"
+            "compose harness, then cut a signed release. Do NOT auto-apply."
+          )
+          $bodyFile = Join-Path $env:RUNNER_TEMP "issue-body.md"
+          $lines -join "`n" | Out-File -FilePath $bodyFile -Encoding utf8
+          gh issue create --title "Review upstream strategy preset change" --body-file $bodyFile

@@ -14,7 +14,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "D7DFCB6D933E10D48B0B8B0217F3EAE3BEDDB572E206AF97D7E30FD90980D9EC",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 }
             ]
@@ -30,7 +30,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "D7DFCB6D933E10D48B0B8B0217F3EAE3BEDDB572E206AF97D7E30FD90980D9EC",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {

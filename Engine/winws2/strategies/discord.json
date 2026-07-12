@@ -14,7 +14,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-discord.txt",
-                    "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",
+                    "Sha256": "92C23658820F5319F96A49152C444907793A4EC2424660DC9B0E19EBAC9CEBC4",
                     "Required": true
                 },
                 {
@@ -35,7 +35,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-discord.txt",
-                    "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",
+                    "Sha256": "92C23658820F5319F96A49152C444907793A4EC2424660DC9B0E19EBAC9CEBC4",
                     "Required": true
                 }
             ]
@@ -51,7 +51,7 @@
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-discord.txt",
-                    "Sha256": "6617B24ACF755F975E83BA077E017E08F2CA21BF0896824A711196A1973261B1",
+                    "Sha256": "92C23658820F5319F96A49152C444907793A4EC2424660DC9B0E19EBAC9CEBC4",
                     "Required": true
                 }
             ]

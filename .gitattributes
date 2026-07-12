@@ -1,0 +1,5 @@
+# Hash-pinned engine binaries and data files must keep their EXACT bytes on
+# every checkout (no CRLF/LF conversion), or their pinned SHA256 in the strategy
+# / profile / trust-manifest JSONs will not match and the engine refuses to run.
+Engine/winws2/bin/**   -text
+Engine/winws2/files/** -text
