@@ -3,6 +3,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Linq;
 
 namespace Chillistica_game.Service;
@@ -17,8 +18,23 @@ public sealed class NamedPipeServer : BackgroundService
 
     private const int MaxConcurrentConnections = 4;
 
+    // Hard cap on a single control command so a client cannot stream an
+    // unbounded newline-free line and exhaust service memory (DoS).
+    private const int MaxCommandLength = 4096;
+
+    // Strict allowlist for a client-supplied app id: lowercase alphanumerics and
+    // dashes only. Blocks path traversal ('..\'), separators, env vars, drive
+    // letters and any character that could steer the strategy-catalog file path.
+    private static readonly Regex AppIdPattern =
+        new("^[a-z0-9-]{1,32}$", RegexOptions.Compiled);
+
     private static readonly TimeSpan IdleReadTimeout =
         TimeSpan.FromSeconds(5);
+
+    // One-shot flag: the first NamedPipeServerStream created across all accept
+    // loops asserts FirstPipeInstance to detect a squatter that pre-created the
+    // pipe name; subsequent instances of the name we already own do not.
+    private int _firstInstanceClaimed;
 
     private readonly ServiceLogger _logger;
     private readonly EngineProcessManager _engineProcessManager;
@@ -66,6 +82,12 @@ public sealed class NamedPipeServer : BackgroundService
             {
                 break;
             }
+            catch (IOException)
+            {
+                // Expected client-side disconnect / broken pipe. Loop again
+                // immediately without the penalty delay so one misbehaving
+                // client cannot throttle overall accept capacity (DoS).
+            }
             catch (Exception exception)
             {
                 _logger.Error(
@@ -93,13 +115,28 @@ public sealed class NamedPipeServer : BackgroundService
         PipeSecurity pipeSecurity =
             CreatePipeSecurity();
 
+        // Only the very first stream created (across all accept loops) asserts
+        // FirstPipeInstance, so we fail to start if another process squatted the
+        // name. Once we own an instance, later instances must not set the flag.
+        bool assertFirstInstance =
+            Interlocked.CompareExchange(
+                ref _firstInstanceClaimed, 1, 0) == 0;
+
+        PipeOptions pipeOptions =
+            PipeOptions.Asynchronous;
+
+        if (assertFirstInstance)
+        {
+            pipeOptions |= PipeOptions.FirstPipeInstance;
+        }
+
         await using NamedPipeServerStream pipe =
             NamedPipeServerStreamAcl.Create(
                 pipeName: PipeName,
                 direction: PipeDirection.InOut,
                 maxNumberOfServerInstances: MaxConcurrentConnections,
                 transmissionMode: PipeTransmissionMode.Byte,
-                options: PipeOptions.Asynchronous,
+                options: pipeOptions,
                 inBufferSize: 4096,
                 outBufferSize: 4096,
                 pipeSecurity: pipeSecurity);
@@ -142,7 +179,8 @@ public sealed class NamedPipeServer : BackgroundService
             try
             {
                 command =
-                    await reader.ReadLineAsync(
+                    await ReadCommandLineAsync(
+                        reader,
                         readCts.Token);
             }
             catch (OperationCanceledException)
@@ -151,6 +189,17 @@ public sealed class NamedPipeServer : BackgroundService
                 _logger.Info(
                     stage: "NamedPipeConnection",
                     result: "IdleTimeout; disconnecting client");
+
+                return;
+            }
+            catch (InvalidDataException)
+            {
+                _logger.Info(
+                    stage: "NamedPipeConnection",
+                    result: "CommandTooLong; disconnecting client");
+
+                await writer.WriteLineAsync(
+                    "ERROR COMMAND_TOO_LONG");
 
                 return;
             }
@@ -180,9 +229,13 @@ public sealed class NamedPipeServer : BackgroundService
                 WellKnownSidType.LocalSystemSid,
                 domainSid: null);
 
-        var localUsersSid =
+        // Authenticated users (the interactive user the WPF app runs as) may
+        // drive the engine. Narrower than BUILTIN\Users: excludes anonymous /
+        // guest logons. State-changing commands are additionally made safe by
+        // strict appId/argument validation rather than by ACL alone.
+        var authenticatedUsersSid =
             new SecurityIdentifier(
-                WellKnownSidType.BuiltinUsersSid,
+                WellKnownSidType.AuthenticatedUserSid,
                 domainSid: null);
 
         security.AddAccessRule(
@@ -193,7 +246,7 @@ public sealed class NamedPipeServer : BackgroundService
 
         security.AddAccessRule(
             new PipeAccessRule(
-                localUsersSid,
+                authenticatedUsersSid,
                 PipeAccessRights.ReadWrite,
                 AccessControlType.Allow));
 
@@ -332,7 +385,13 @@ public sealed class NamedPipeServer : BackgroundService
         }
         catch (Exception exception)
         {
-            return $"ENGINE_COMPOSE_ERROR PARSE: {exception.Message}";
+            // Opaque code to the caller; details go to the server log only, so
+            // internal paths / hashes are not disclosed over the pipe.
+            _logger.Info(
+                stage: "EngineComposeParse",
+                result: $"Rejected; {exception.GetType().Name}: {exception.Message}");
+
+            return "ENGINE_COMPOSE_ERROR PARSE";
         }
 
         EngineOptions composedOptions;
@@ -353,7 +412,7 @@ public sealed class NamedPipeServer : BackgroundService
                 stage: "EngineProfileCompose",
                 exception: exception);
 
-            return $"ENGINE_COMPOSE_ERROR: {exception.Message}";
+            return "ENGINE_COMPOSE_ERROR";
         }
 
         string stopResult =
@@ -387,23 +446,30 @@ public sealed class NamedPipeServer : BackgroundService
     private string HandleGetAppStrategyCatalog(
         string appId)
     {
-        if (string.IsNullOrWhiteSpace(appId))
+        string normalizedAppId =
+            appId.Trim().ToLowerInvariant();
+
+        if (!AppIdPattern.IsMatch(normalizedAppId))
         {
-            return "ERROR EMPTY_APP_ID";
+            return "ERROR INVALID_APP_ID";
         }
 
         try
         {
             AppStrategyCatalog catalog =
                 ProfileComposer.LoadCatalog(
-                    appId.Trim());
+                    normalizedAppId);
 
             return JsonSerializer.Serialize(
                 catalog);
         }
         catch (Exception exception)
         {
-            return $"ERROR CATALOG: {exception.Message}";
+            _logger.Info(
+                stage: "EngineCatalogRead",
+                result: $"Failed; {exception.GetType().Name}: {exception.Message}");
+
+            return "ERROR CATALOG";
         }
     }
 
@@ -434,11 +500,78 @@ public sealed class NamedPipeServer : BackgroundService
                     $"Invalid app selection entry: '{entry}'. Expected format 'appid:index'.");
             }
 
+            string appId =
+                parts[0].Trim().ToLowerInvariant();
+
+            if (!AppIdPattern.IsMatch(appId))
+            {
+                throw new ArgumentException(
+                    $"Invalid app id in selection entry: '{entry}'.");
+            }
+
+            if (strategyIndex < 0)
+            {
+                throw new ArgumentException(
+                    $"Negative strategy index in selection entry: '{entry}'.");
+            }
+
             selections.Add(
-                (parts[0].Trim().ToLowerInvariant(), strategyIndex));
+                (appId, strategyIndex));
         }
 
         return selections;
+    }
+
+    private static async Task<string?> ReadCommandLineAsync(
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        var builder =
+            new StringBuilder();
+
+        var buffer =
+            new char[256];
+
+        while (true)
+        {
+            int read =
+                await reader.ReadAsync(
+                    buffer,
+                    cancellationToken);
+
+            if (read == 0)
+            {
+                // End of stream before a newline.
+                break;
+            }
+
+            for (int i = 0; i < read; i++)
+            {
+                char current = buffer[i];
+
+                if (current == '\n')
+                {
+                    return builder.ToString();
+                }
+
+                if (current == '\r')
+                {
+                    continue;
+                }
+
+                builder.Append(current);
+
+                if (builder.Length > MaxCommandLength)
+                {
+                    throw new InvalidDataException(
+                        "Command exceeds the maximum allowed length.");
+                }
+            }
+        }
+
+        return builder.Length == 0
+            ? null
+            : builder.ToString();
     }
 }
 

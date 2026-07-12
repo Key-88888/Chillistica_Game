@@ -115,7 +115,8 @@ public partial class MainWindow : Window
         {
             string stagingFolder =
                 await _updateCheckService.DownloadAndStageUpdateAsync(
-                    _pendingUpdate.DownloadUrl);
+                    _pendingUpdate.DownloadUrl,
+                    _pendingUpdate.SignatureUrl);
 
             _logger.Info(
                 stage: "Update",

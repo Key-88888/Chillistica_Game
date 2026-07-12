@@ -7,4 +7,6 @@ public sealed class UpdateCheckResult
     public required string TagName { get; init; }
 
     public required string DownloadUrl { get; init; }
+
+    public required string SignatureUrl { get; init; }
 }

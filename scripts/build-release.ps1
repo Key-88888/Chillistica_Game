@@ -87,6 +87,7 @@ if (-not (Test-Path (Join-Path $appPublishDir "Chillistica_game.App.exe"))) {
 }
 
 Copy-Item ".\scripts\install-package.ps1" (Join-Path $staging "install-package.ps1") -Force
+Copy-Item ".\scripts\apply-update.ps1" (Join-Path $staging "apply-update.ps1") -Force
 Copy-Item ".\scripts\install.cmd" (Join-Path $staging "install.cmd") -Force
 
 if (Test-Path ".\scripts\uninstall-service.ps1") {
@@ -122,3 +123,16 @@ Compress-Archive `
     -Force
 
 Write-Host "RELEASE_ZIP=$zipPath" -ForegroundColor Green
+
+# Sign the release zip so auto-update clients can verify authenticity against
+# the pinned public key. The private key comes from a CI secret / local file and
+# is never committed. Without it, the zip is unsigned and clients refuse it.
+$signingKeyPem = $env:CHILLISTICA_SIGNING_KEY_PEM
+
+if (-not [string]::IsNullOrWhiteSpace($signingKeyPem)) {
+    & (Join-Path $PSScriptRoot "sign-release.ps1") -FilePath $zipPath -PrivateKeyPem $signingKeyPem
+    Write-Host "RELEASE_SIG=$zipPath.sig" -ForegroundColor Green
+}
+else {
+    Write-Warning "CHILLISTICA_SIGNING_KEY_PEM not set: release zip is UNSIGNED. Auto-update clients will refuse it until you sign the release and pin the public key."
+}

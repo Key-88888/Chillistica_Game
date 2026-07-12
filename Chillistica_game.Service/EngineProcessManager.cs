@@ -1,4 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 
@@ -132,6 +135,18 @@ public sealed class EngineProcessManager :
                 throw new DirectoryNotFoundException(
                     $"Engine working directory was not found: {workingDirectory}");
             }
+
+            // Fail closed if the engine directory is writable by non-admins:
+            // the whole trust model assumes only admins/SYSTEM can alter the
+            // pinned binaries, so a loosened ACL must block the launch.
+            EnsureEngineDirectoryHardenedUnsafe(
+                executablePath);
+
+            // Re-verify the pinned executable AND every pinned support file
+            // (cygwin1.dll, WinDivert.dll/.sys, hostlists, quic bin) immediately
+            // before launch, closing the time-of-check/time-of-use gap between
+            // profile validation and process start.
+            VerifyPinnedFilesUnsafe();
 
             var startInfo =
                 new ProcessStartInfo
@@ -667,6 +682,148 @@ public sealed class EngineProcessManager :
         return EngineTrustManifestLoader.IsExecutableTrusted(
             executablePath);
     }
+
+    private void VerifyPinnedFilesUnsafe()
+    {
+        string executablePath =
+            ResolveExecutablePath(
+                _options.ExecutablePath);
+
+        if (!EngineTrustManifestLoader.IsExecutableTrusted(
+                executablePath))
+        {
+            throw new InvalidOperationException(
+                "Engine executable is no longer trusted at launch time.");
+        }
+
+        foreach (EngineFileHash fileHash in _options.FileHashes)
+        {
+            if (string.IsNullOrWhiteSpace(fileHash.Path) ||
+                string.IsNullOrWhiteSpace(fileHash.Sha256))
+            {
+                continue;
+            }
+
+            string resolvedPath =
+                ResolveExecutablePath(
+                    fileHash.Path);
+
+            if (!File.Exists(resolvedPath))
+            {
+                if (fileHash.Required)
+                {
+                    throw new FileNotFoundException(
+                        "Required pinned file missing at launch time.",
+                        fileHash.Path);
+                }
+
+                continue;
+            }
+
+            string actualHash =
+                ComputeSha256(
+                    resolvedPath);
+
+            if (!actualHash.Equals(
+                    fileHash.Sha256.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Pinned file hash mismatch at launch time: {fileHash.Path}");
+            }
+        }
+    }
+
+    private void EnsureEngineDirectoryHardenedUnsafe(
+        string executablePath)
+    {
+        string? binDirectory =
+            Path.GetDirectoryName(
+                executablePath);
+
+        if (string.IsNullOrEmpty(binDirectory))
+        {
+            return;
+        }
+
+        SecurityIdentifier[] broadPrincipals =
+        {
+            new(WellKnownSidType.WorldSid, null),            // Everyone
+            new(WellKnownSidType.BuiltinUsersSid, null),     // BUILTIN\Users
+            new(WellKnownSidType.AuthenticatedUserSid, null),// Authenticated Users
+            new(WellKnownSidType.InteractiveSid, null)       // INTERACTIVE
+        };
+
+        const FileSystemRights WriteRights =
+            FileSystemRights.WriteData |
+            FileSystemRights.CreateFiles |
+            FileSystemRights.CreateDirectories |
+            FileSystemRights.AppendData |
+            FileSystemRights.Write |
+            FileSystemRights.Modify |
+            FileSystemRights.FullControl;
+
+        try
+        {
+            var security =
+                new DirectorySecurity(
+                    binDirectory,
+                    AccessControlSections.Access);
+
+            foreach (FileSystemAccessRule rule in
+                     security.GetAccessRules(
+                         includeExplicit: true,
+                         includeInherited: true,
+                         targetType: typeof(SecurityIdentifier)))
+            {
+                if (rule.AccessControlType != AccessControlType.Allow)
+                {
+                    continue;
+                }
+
+                if ((rule.FileSystemRights & WriteRights) == 0)
+                {
+                    continue;
+                }
+
+                if (broadPrincipals.Any(sid =>
+                        sid.Equals(rule.IdentityReference)))
+                {
+                    throw new InvalidOperationException(
+                        $"Engine directory '{binDirectory}' grants write access to a broad principal ({rule.IdentityReference}); refusing to launch. Reinstall under an admin-only location.");
+                }
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Positive detection above: propagate as a hard fail-closed.
+            throw;
+        }
+        catch (Exception exception)
+        {
+            // Could not read the ACL (unexpected). Do not brick a legitimate
+            // install over an ACL-read quirk — log and proceed.
+            _logger.Error(
+                stage: "EngineDirectoryAclCheck",
+                exception: exception);
+        }
+    }
+
+    private static string ComputeSha256(
+        string filePath)
+    {
+        byte[] bytes =
+            File.ReadAllBytes(
+                filePath);
+
+        byte[] hash =
+            SHA256.HashData(
+                bytes);
+
+        return Convert.ToHexString(
+            hash);
+    }
+
     private bool IsProcessRunningUnsafe()
     {
         return

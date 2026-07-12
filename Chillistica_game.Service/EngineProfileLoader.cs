@@ -332,33 +332,30 @@ public static class EngineProfileLoader
                 executablePath);
         }
 
-        bool isUnsafeProfile =
-            profile.RequiresAdmin ||
-            profile.UsesWinDivert;
+        // The executable-trust gate is enforced for EVERY profile, not only for
+        // profiles that self-declare RequiresAdmin/UsesWinDivert. A profile must
+        // never be able to opt out of validation by lying about its flags and
+        // then run an arbitrary (or UNC) executable as LocalSystem.
+        string trustedBinDirectory =
+            ResolveEnginePath(
+                "Engine\\winws2\\bin");
 
-        if (isUnsafeProfile)
+        bool isUnderTrustedDirectory =
+            executablePath.StartsWith(
+                trustedBinDirectory + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!isUnderTrustedDirectory)
         {
-            string trustedBinDirectory =
-                ResolveEnginePath(
-                    "Engine\\winws2\\bin");
+            throw new InvalidDataException(
+                $"ExecutablePath is outside the trusted Engine\\winws2\\bin directory in '{profilePath}': {profile.ExecutablePath}");
+        }
 
-            bool isUnderTrustedDirectory =
-                executablePath.StartsWith(
-                    trustedBinDirectory + Path.DirectorySeparatorChar,
-                    StringComparison.OrdinalIgnoreCase);
-
-            if (!isUnderTrustedDirectory)
-            {
-                throw new InvalidDataException(
-                    $"ExecutablePath is outside the trusted Engine\\winws2\\bin directory in '{profilePath}': {profile.ExecutablePath}");
-            }
-
-            if (!EngineTrustManifestLoader.IsExecutableTrusted(
-                    executablePath))
-            {
-                throw new InvalidDataException(
-                    $"ExecutablePath is not listed in the trusted engine binaries manifest in '{profilePath}': {profile.ExecutablePath}");
-            }
+        if (!EngineTrustManifestLoader.IsExecutableTrusted(
+                executablePath))
+        {
+            throw new InvalidDataException(
+                $"ExecutablePath is not listed in the trusted engine binaries manifest in '{profilePath}': {profile.ExecutablePath}");
         }
 
         string workingDirectory =
@@ -370,6 +367,29 @@ public static class EngineProfileLoader
         string resolvedWorkingDirectory =
             ResolveEnginePath(
                 workingDirectory);
+
+        // WorkingDirectory must stay inside the install tree (BaseDirectory).
+        // Blocks absolute/UNC working dirs (e.g. \\attacker\share) that could
+        // change winws's relative-path resolution for a SYSTEM process.
+        string installRoot =
+            Path.GetFullPath(
+                AppContext.BaseDirectory);
+
+        bool workingDirUnderInstall =
+            resolvedWorkingDirectory.Equals(
+                installRoot.TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase) ||
+            resolvedWorkingDirectory.StartsWith(
+                installRoot.EndsWith(Path.DirectorySeparatorChar)
+                    ? installRoot
+                    : installRoot + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!workingDirUnderInstall)
+        {
+            throw new InvalidDataException(
+                $"WorkingDirectory is outside the install directory in '{profilePath}': {profile.WorkingDirectory}");
+        }
 
         if (!Directory.Exists(resolvedWorkingDirectory))
         {

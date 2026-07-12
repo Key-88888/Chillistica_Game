@@ -157,6 +157,16 @@ New-Item -ItemType Directory -Path $appDir -Force | Out-Null
 Copy-Item "$serviceSource\*" $serviceDir -Recurse -Force
 Copy-Item "$appSource\*" $appDir -Recurse -Force
 
+# Deploy the trusted updater + installer into the admin-only install root so the
+# app can invoke apply-update.ps1 elevated for future updates (it re-verifies the
+# signed package there, closing the user-writable-staging TOCTOU).
+foreach ($script in @("apply-update.ps1", "install-package.ps1")) {
+    $scriptSource = Join-Path $packageRoot $script
+    if (Test-Path $scriptSource) {
+        Copy-Item $scriptSource (Join-Path $InstallDir $script) -Force
+    }
+}
+
 $serviceExe = Join-Path $serviceDir "Chillistica_game.Service.exe"
 $appExe = Join-Path $appDir "Chillistica_game.App.exe"
 
