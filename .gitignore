@@ -15,3 +15,7 @@ publish/
 artifacts/
 Thumbs.db
 Desktop.ini
+
+# Signing keys must never be committed (private key lives offline + as a CI secret).
+*.pem
+*-signing-*.pem

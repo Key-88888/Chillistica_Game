@@ -18,10 +18,21 @@ namespace Chillistica_game.App.Services;
 /// </summary>
 public static class UpdateSignatureVerifier
 {
-    // Paste the release signing PUBLIC key here (SubjectPublicKeyInfo PEM,
-    // "-----BEGIN PUBLIC KEY-----"). Generate with scripts/new-signing-key.ps1.
-    // Leave empty to keep auto-update disabled (fail closed).
-    public const string PublicKeyPem = "";
+    // Release signing PUBLIC key (SubjectPublicKeyInfo, RSA-3072). The matching
+    // private key exists only offline + as the CI secret CHILLISTICA_SIGNING_KEY_PEM.
+    // To rotate: scripts/new-signing-key.ps1, replace this, update the secret.
+    public const string PublicKeyPem =
+        "-----BEGIN PUBLIC KEY-----\n" +
+        "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA3E5sjJ5NOXKnwEsp5kxw\n" +
+        "wpBtrXmpxOsVS9xspFs9saNKK6SRBDe5k9C4U9PzR4RFM/Aj/0VySVQv5cbS8ZIE\n" +
+        "40bPsHECptK+oWatR8eeaOiCmBL6e3SZNpleWkUjOtPR9sZ1gdLVsiebKdS3nsUg\n" +
+        "V2l8r7Uopkx7b/Rx0QGzteaG7K4MwdMxV5YqfN5u3zaQ92WekDDPNbP49fHAp+IZ\n" +
+        "d3p8wQKbj0C40Aabt3SZCL61aIyuKhhAhbHPkly80osm2Ho7FdDMzgzTtLjH+X94\n" +
+        "iittE8rB0CVJNVbw0GMnXSst/OyNh5PDbuNTBMTHdrhWMpZsTedlbMmJdWT1iIfG\n" +
+        "edAHzDCoO/rAB+k1USBJM59do43FT8bl+1viHkd9cBu44ZNT+e9M3mxn0YcAAd+V\n" +
+        "IoKZOW+CIbBptyQTFxT1rDcy2FDeCHETGxNpf/DYfhedNpa1kVvbH4Q/wlRGD5/K\n" +
+        "ccjuNL2p6yZTk76oHdAHkTGTv+NEu2YY+SXdNU68PTzRAgMBAAE=\n" +
+        "-----END PUBLIC KEY-----";
 
     public static bool IsConfigured =>
         !string.IsNullOrWhiteSpace(PublicKeyPem);
