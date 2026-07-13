@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-Chillistica_game.Service-0f47c249-0a9a-4842-b074-31377bb42e3d</UserSecretsId>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
