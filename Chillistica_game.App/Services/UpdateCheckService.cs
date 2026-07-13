@@ -100,11 +100,22 @@ public sealed class UpdateCheckService
                 return null;
             }
 
+            // Bind the asset name to the advertised tag. The release always ships
+            // "Chillistica_game-<tag>-win-x64.zip"; requiring an exact match stops
+            // a MITM from advertising a fake-high version while pointing the
+            // download at a genuinely-signed but OLDER asset (rollback defence),
+            // since no signed asset exists whose name carries the forged version.
+            string expectedZipName =
+                $"Chillistica_game-{tagName}-win-x64.zip";
+
+            string expectedSignatureName =
+                expectedZipName + ".sig";
+
             string? downloadUrl =
-                FindAssetUrl(document.RootElement, "-win-x64.zip");
+                FindAssetUrl(document.RootElement, expectedZipName);
 
             string? signatureUrl =
-                FindAssetUrl(document.RootElement, "-win-x64.zip.sig");
+                FindAssetUrl(document.RootElement, expectedSignatureName);
 
             // Both the package and its detached signature must be present and
             // served from an allowed HTTPS host, or the update is not offered.
@@ -231,6 +242,16 @@ public sealed class UpdateCheckService
                 trustedUpdaterPath);
         }
 
+        // Defence in depth: only ever elevate a script that lives in an admin-only
+        // location. If the app is run from a user-writable directory, its sibling
+        // apply-update.ps1 could be attacker-planted and would then execute as
+        // SYSTEM via runas — refuse rather than hand an untrusted script elevation.
+        if (!IsUnderProgramFiles(trustedUpdaterPath))
+        {
+            throw new InvalidOperationException(
+                "Обновление отменено: установщик обновлений находится вне защищённого каталога Program Files.");
+        }
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "powershell.exe",
@@ -263,6 +284,41 @@ public sealed class UpdateCheckService
         await response.Content.CopyToAsync(
             fileStream,
             cancellationToken);
+    }
+
+    private static bool IsUnderProgramFiles(string path)
+    {
+        string fullPath =
+            Path.GetFullPath(path);
+
+        foreach (Environment.SpecialFolder folder in new[]
+                 {
+                     Environment.SpecialFolder.ProgramFiles,
+                     Environment.SpecialFolder.ProgramFilesX86
+                 })
+        {
+            string root =
+                Environment.GetFolderPath(folder);
+
+            if (string.IsNullOrEmpty(root))
+            {
+                continue;
+            }
+
+            string normalizedRoot =
+                Path.GetFullPath(root)
+                    .TrimEnd(Path.DirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
+            if (fullPath.StartsWith(
+                    normalizedRoot,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string ResolveInstalledUpdaterPath()

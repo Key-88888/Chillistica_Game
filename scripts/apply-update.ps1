@@ -2,11 +2,17 @@
 #
 # SECURITY MODEL: this script is installed into the admin-only install directory
 # (%ProgramFiles%\Chillistica_game\apply-update.ps1) and is the ONLY script the
-# app launches elevated for updates. It re-verifies the downloaded package's
-# detached signature against the pinned public key BEFORE touching anything, by
-# delegating to the installed, code-signed App binary (--verify-update). A
-# standard user cannot tamper this script or that binary (admin-only ACL), so a
-# user-writable-staging swap of the downloaded payload cannot escalate to admin.
+# app launches elevated for updates.
+#
+# TOCTOU DEFENCE: the downloaded package lives in a USER-WRITABLE staging folder,
+# so we must never verify one copy and then consume the bytes again from that
+# same user-writable path (a same-user attacker could swap the file in between).
+# We FIRST copy the package + signature into an admin-only work directory, and
+# every subsequent step (signature re-verify AND extraction) reads only that
+# admin-only copy, which a standard user cannot modify. We also never recursively
+# delete the user-controlled staging directory from this elevated context (a
+# junction there would turn into an arbitrary admin-level delete) -- the app
+# cleans its own staging folder in the user context on the next download.
 param(
     [Parameter(Mandatory = $true)][string]$ZipPath,
     [Parameter(Mandatory = $true)][string]$SignaturePath,
@@ -38,22 +44,36 @@ if (-not (Test-Path $appExe)) {
     throw "Installed app binary not found for verification: $appExe"
 }
 
-# --- Re-verify the signature using the pinned public key inside the installed,
-#     admin-only .NET 8 App binary. Fail closed on anything other than exit 0. ---
-Write-Host "Verifying update signature..." -ForegroundColor Cyan
-& $appExe --verify-update $ZipPath $SignaturePath
-if ($LASTEXITCODE -ne 0) {
-    throw "Update signature verification FAILED (exit $LASTEXITCODE). Aborting update."
-}
-Write-Host "Signature OK." -ForegroundColor Green
-
-# --- Extract the verified package fresh into an admin-only temp directory (never
-#     trust any pre-extracted, user-writable content). ---
-$extractDir = Join-Path $env:TEMP ("Chillistica_verified_" + [Guid]::NewGuid().ToString("N"))
-New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+# --- Take an admin-only private copy of the package BEFORE verifying it, so the
+#     bytes that are verified are the exact same bytes that get extracted. From
+#     here on the user-writable $ZipPath/$SignaturePath are never read again. ---
+$workDir = Join-Path $env:TEMP ("Chillistica_verified_" + [Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
 try {
-    Expand-Archive -Path $ZipPath -DestinationPath $extractDir -Force
+    $verifiedZip = Join-Path $workDir "update.zip"
+    $verifiedSig = Join-Path $workDir "update.zip.sig"
+
+    # Copy (never move/link) into the admin-only work dir. If the source is a
+    # symlink/junction it is dereferenced here by the admin; the copied content
+    # is still gated by the signature check below, so nothing untrusted survives.
+    [System.IO.File]::Copy([System.IO.Path]::GetFullPath($ZipPath), $verifiedZip, $true)
+    [System.IO.File]::Copy([System.IO.Path]::GetFullPath($SignaturePath), $verifiedSig, $true)
+
+    # --- Verify the ADMIN-ONLY copy's signature with the pinned public key inside
+    #     the installed, admin-only .NET 8 App binary. Fail closed on non-zero. ---
+    Write-Host "Verifying update signature..." -ForegroundColor Cyan
+    & $appExe --verify-update $verifiedZip $verifiedSig
+    if ($LASTEXITCODE -ne 0) {
+        throw "Update signature verification FAILED (exit $LASTEXITCODE). Aborting update."
+    }
+    Write-Host "Signature OK." -ForegroundColor Green
+
+    # --- Extract the verified admin-only copy (never any user-writable path). ---
+    $extractDir = Join-Path $workDir "extracted"
+    New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+
+    Expand-Archive -Path $verifiedZip -DestinationPath $extractDir -Force
 
     $newService = Join-Path $extractDir "service"
     $newApp = Join-Path $extractDir "app"
@@ -100,12 +120,18 @@ try {
     Start-Service -Name $ServiceName
     Write-Host "Update applied successfully." -ForegroundColor Green
 
+    # Relaunch the app as the INTERACTIVE user, not elevated. Starting it through
+    # the already-running user-context explorer.exe drops the admin token so the
+    # network-facing WPF app never runs with SYSTEM/admin rights.
     if (Test-Path $appExe) {
-        Start-Process -FilePath $appExe
+        Start-Process -FilePath "explorer.exe" -ArgumentList "`"$appExe`""
     }
 }
 finally {
-    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
-    # Clean up the (now-consumed) downloaded staging payload.
-    Remove-Item (Split-Path -Parent $ZipPath) -Recurse -Force -ErrorAction SilentlyContinue
+    # Only ever remove our own admin-only work directory. We deliberately do NOT
+    # touch the user-writable staging folder from this elevated context: a
+    # recursive force-delete of a user-controlled path could be redirected via a
+    # junction into an arbitrary admin-level delete. The app clears its own
+    # staging folder (user context) before the next download.
+    Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -746,6 +746,41 @@ public sealed class EngineProcessManager :
             return;
         }
 
+        // The trust model assumes only admins/SYSTEM can alter anything under the
+        // engine tree — not just the pinned binaries in bin\, but also
+        // strategies\ (its ArgumentsFragment/ports become SYSTEM winws argv) and
+        // profiles\/files\ (loaded/read by the SYSTEM process). Check the whole
+        // winws2\ subtree, not only bin\, so a loosened ACL anywhere fails closed.
+        var directoriesToCheck = new List<string> { binDirectory };
+
+        string? engineRoot =
+            Path.GetDirectoryName(binDirectory);
+
+        if (!string.IsNullOrEmpty(engineRoot))
+        {
+            directoriesToCheck.Add(engineRoot);
+
+            foreach (string sibling in new[] { "strategies", "profiles", "files" })
+            {
+                string siblingPath =
+                    Path.Combine(engineRoot, sibling);
+
+                if (Directory.Exists(siblingPath))
+                {
+                    directoriesToCheck.Add(siblingPath);
+                }
+            }
+        }
+
+        foreach (string directory in directoriesToCheck)
+        {
+            EnsureDirectoryNotBroadlyWritableUnsafe(directory);
+        }
+    }
+
+    private void EnsureDirectoryNotBroadlyWritableUnsafe(
+        string directory)
+    {
         SecurityIdentifier[] broadPrincipals =
         {
             new(WellKnownSidType.WorldSid, null),            // Everyone
@@ -767,7 +802,7 @@ public sealed class EngineProcessManager :
         {
             var security =
                 new DirectorySecurity(
-                    binDirectory,
+                    directory,
                     AccessControlSections.Access);
 
             foreach (FileSystemAccessRule rule in
@@ -790,7 +825,7 @@ public sealed class EngineProcessManager :
                         sid.Equals(rule.IdentityReference)))
                 {
                     throw new InvalidOperationException(
-                        $"Engine directory '{binDirectory}' grants write access to a broad principal ({rule.IdentityReference}); refusing to launch. Reinstall under an admin-only location.");
+                        $"Engine directory '{directory}' grants write access to a broad principal ({rule.IdentityReference}); refusing to launch. Reinstall under an admin-only location.");
                 }
             }
         }

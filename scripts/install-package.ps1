@@ -206,20 +206,37 @@ if (-not $pipeOk) {
     throw "Service is running but Named Pipe PING failed."
 }
 
-$desktop = [Environment]::GetFolderPath("DesktopDirectory")
-$shortcutPath = Join-Path $desktop "Chillistica_game.lnk"
+# Create shortcuts in the ALL-USERS (machine-wide) locations. The installer runs
+# elevated, possibly under a different admin account than the everyday user, so a
+# per-user Desktop path would land on the wrong desktop ("can't find shortcut").
+# The common Desktop + Start-menu entry are visible to whoever is logged in.
+$commonDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
+$commonPrograms = [Environment]::GetFolderPath("CommonPrograms")
 
-New-Shortcut `
-    -TargetPath $appExe `
-    -ShortcutPath $shortcutPath `
-    -WorkingDirectory $appDir
+$shortcutTargets = @()
+if ($commonDesktop) { $shortcutTargets += (Join-Path $commonDesktop "Chillistica_game.lnk") }
+if ($commonPrograms) { $shortcutTargets += (Join-Path $commonPrograms "Chillistica_game.lnk") }
+
+foreach ($shortcutPath in $shortcutTargets) {
+    New-Shortcut `
+        -TargetPath $appExe `
+        -ShortcutPath $shortcutPath `
+        -WorkingDirectory $appDir
+
+    Write-Host "Shortcut created: $shortcutPath" -ForegroundColor Green
+}
 
 Write-Host "Service installed and PING OK." -ForegroundColor Green
-Write-Host "Shortcut created: $shortcutPath" -ForegroundColor Green
+Write-Host "Installed to: $InstallDir" -ForegroundColor Green
+Write-Host "Start menu / desktop entry: Chillistica_game" -ForegroundColor Green
 
-Start-Process -FilePath $appExe
+# Launch the app as the INTERACTIVE user (not elevated). Starting it through the
+# already-running user-context explorer.exe drops the admin token, so the
+# network-facing WPF app never runs with admin rights.
+Start-Process -FilePath "explorer.exe" -ArgumentList "`"$appExe`""
 
 Write-Host "Installation complete." -ForegroundColor Green
+Write-Host "Если приложение не открылось — запустите ярлык Chillistica_game с рабочего стола или из меню Пуск." -ForegroundColor Cyan
 
 if (-not $Silent) {
     Read-Host "Press Enter to close"
