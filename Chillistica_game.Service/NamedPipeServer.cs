@@ -122,24 +122,10 @@ public sealed class NamedPipeServer : BackgroundService
             Interlocked.CompareExchange(
                 ref _firstInstanceClaimed, 1, 0) == 0;
 
-        PipeOptions pipeOptions =
-            PipeOptions.Asynchronous;
-
-        if (assertFirstInstance)
-        {
-            pipeOptions |= PipeOptions.FirstPipeInstance;
-        }
-
         await using NamedPipeServerStream pipe =
-            NamedPipeServerStreamAcl.Create(
-                pipeName: PipeName,
-                direction: PipeDirection.InOut,
-                maxNumberOfServerInstances: MaxConcurrentConnections,
-                transmissionMode: PipeTransmissionMode.Byte,
-                options: pipeOptions,
-                inBufferSize: 4096,
-                outBufferSize: 4096,
-                pipeSecurity: pipeSecurity);
+            CreatePipeInstance(
+                assertFirstInstance,
+                pipeSecurity);
 
         await pipe.WaitForConnectionAsync(
             stoppingToken);
@@ -217,6 +203,46 @@ public sealed class NamedPipeServer : BackgroundService
             stage: "NamedPipeCommand",
             result:
                 $"Command={command ?? "<null>"}; Response={response}");
+    }
+
+    private NamedPipeServerStream CreatePipeInstance(
+        bool assertFirstInstance,
+        PipeSecurity pipeSecurity)
+    {
+        PipeOptions pipeOptions =
+            PipeOptions.Asynchronous;
+
+        if (assertFirstInstance)
+        {
+            pipeOptions |= PipeOptions.FirstPipeInstance;
+        }
+
+        try
+        {
+            return NamedPipeServerStreamAcl.Create(
+                pipeName: PipeName,
+                direction: PipeDirection.InOut,
+                maxNumberOfServerInstances: MaxConcurrentConnections,
+                transmissionMode: PipeTransmissionMode.Byte,
+                options: pipeOptions,
+                inBufferSize: 4096,
+                outBufferSize: 4096,
+                pipeSecurity: pipeSecurity);
+        }
+        catch
+        {
+            // The FirstPipeInstance assertion is our squatter check. If the create
+            // fails (a squatter owns the name, or a transient error), release the
+            // one-shot claim so a later accept attempt re-asserts it, instead of
+            // permanently disabling the protection for the rest of the process.
+            if (assertFirstInstance)
+            {
+                Interlocked.Exchange(
+                    ref _firstInstanceClaimed, 0);
+            }
+
+            throw;
+        }
     }
 
     private static PipeSecurity CreatePipeSecurity()

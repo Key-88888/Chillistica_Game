@@ -209,24 +209,51 @@ public partial class MainWindow : Window
             new SolidColorBrush(
                 Color.FromRgb(140, 90, 77));
 
-        StatusText.Text =
-            "Требуется обновление";
-
-        StatusDescription.Text =
-            "Версии приложения и службы несовместимы";
-
         ToggleProtectionButton.Content =
             "Включить защиту";
 
         ToggleProtectionButton.IsEnabled = false;
 
-        EventText.Text =
-            $"Версия IPC службы: {protocolVersion}; ожидается: {NamedPipeClientService.SupportedProtocolVersion}";
+        // Distinguish "the service isn't answering the pipe at all" (most often
+        // the antivirus quarantined the service exe / WinDivert driver) from a
+        // genuine protocol-version mismatch. The old code showed "Требуется
+        // обновление" for both, which was misleading and left users stuck.
+        bool serviceUnreachable =
+            protocolVersion.Equals(
+                "PROTOCOL_UNAVAILABLE",
+                StringComparison.OrdinalIgnoreCase);
 
-        _logger.Info(
-            stage: "ProtocolVersion",
-            result:
-                $"Incompatible; service={protocolVersion}; expected={NamedPipeClientService.SupportedProtocolVersion}");
+        if (serviceUnreachable)
+        {
+            StatusText.Text =
+                "Служба не запущена";
+
+            StatusDescription.Text =
+                "Служба управления недоступна — возможно, её заблокировал антивирус";
+
+            EventText.Text =
+                "Проверьте, что антивирус/Защитник Windows не удалил Chillistica_game из папки установки, и что служба «Chillistica_game.Service» запущена. Добавьте папку установки в исключения антивируса.";
+
+            _logger.Info(
+                stage: "ProtocolVersion",
+                result: "ServiceUnavailable; pipe returned PROTOCOL_UNAVAILABLE");
+        }
+        else
+        {
+            StatusText.Text =
+                "Требуется обновление";
+
+            StatusDescription.Text =
+                "Версии приложения и службы несовместимы";
+
+            EventText.Text =
+                $"Версия IPC службы: {protocolVersion}; ожидается: {NamedPipeClientService.SupportedProtocolVersion}";
+
+            _logger.Info(
+                stage: "ProtocolVersion",
+                result:
+                    $"Incompatible; service={protocolVersion}; expected={NamedPipeClientService.SupportedProtocolVersion}");
+        }
 
         return false;
     }
