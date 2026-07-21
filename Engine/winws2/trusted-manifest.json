@@ -1,5 +1,13 @@
 {
-    "SchemaVersion": 1,
+    "SchemaVersion": 2,
+
+    "_comment": "Compiled INTO the app as an embedded resource (see the csproj). Never trust the copy on disk. SealedDirectories must contain EXACTLY the pinned files: an ADDED file is a verification failure, which is what stops DLL planting (winws.exe statically imports non-KnownDLL wlanapi.dll, and the loader searches the image's own directory before System32). Engine\\winws2\\files is deliberately NOT sealed because the hostlists there are refreshed by the update-hostlists workflow.",
+
+    "SealedDirectories": [
+        "Engine\\winws2\\bin",
+        "Engine\\winws2\\strategies"
+    ],
+
     "TrustedBinaries": [
         {
             "Path": "Engine\\winws2\\bin\\winws.exe",
@@ -19,6 +27,31 @@
         {
             "Path": "Engine\\winws2\\bin\\WinDivert64.sys",
             "Sha256": "8DA085332782708D8767BCACE5327A6EC7283C17CFB85E40B03CD2323A90DDC2",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\bin\\README.md",
+            "Sha256": "BB80759427A08F745D01A132EF2EFDB06D3F00751299CC6A53BFD9649E56CF98",
+            "Required": false
+        },
+        {
+            "Path": "Engine\\winws2\\strategies\\discord.json",
+            "Sha256": "4F655CF9822574FDA5968244DE1E4EA0F6CA96AB25DFBEC4DF870E628B8C50DB",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\strategies\\fortnite.json",
+            "Sha256": "90AC7377F59C484E60650D0E31756333EB061E801BB797BB5CEC0E6BDA110261",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\strategies\\roblox.json",
+            "Sha256": "137A3A206CFBEA9B78384B878BAA98639B466B4CBDD197F5BA15F35110970E42",
+            "Required": true
+        },
+        {
+            "Path": "Engine\\winws2\\strategies\\youtube.json",
+            "Sha256": "8E2DCFA4583FFBBBF614790F041907361E2D8E29091E6617D694F361CA650E60",
             "Required": true
         }
     ]

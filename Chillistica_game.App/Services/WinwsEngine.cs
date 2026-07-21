@@ -132,12 +132,16 @@ public sealed class WinwsEngine : IAsyncDisposable
                 }
             }
 
-            // Fail closed if any pinned engine binary was tampered with. No file
-            // locks are held across the launch — see EngineIntegrity for why
-            // locking would risk breaking winws's own DLL/driver loading.
+            // Fail closed if the engine tree was tampered with: pinned hashes,
+            // plus sealed directories so an ADDED file (e.g. a planted
+            // wlanapi.dll the loader would pick up from the image directory) is
+            // a refusal too. The lease holds write-denying handles on the image
+            // and its DLLs until winws has started.
+            EngineIntegrity.EngineLease lease;
+
             try
             {
-                EngineIntegrity.VerifyOrThrow();
+                lease = EngineIntegrity.VerifyOrThrow();
             }
             catch (Exception ex)
             {
@@ -145,6 +149,8 @@ public sealed class WinwsEngine : IAsyncDisposable
                 return $"ENGINE_INTEGRITY_FAILED: {ex.Message}";
             }
 
+            try
+            {
             _recentOutput.Clear();
 
             var startInfo = new ProcessStartInfo
@@ -193,6 +199,13 @@ public sealed class WinwsEngine : IAsyncDisposable
             process.BeginErrorReadLine();
 
             _process = process;
+            }
+            finally
+            {
+                // winws has started (or failed to); the verified bytes are now
+                // mapped, so the write-denying handles can go.
+                lease.Dispose();
+            }
 
             // winws crashes (e.g. WinDivert mismatch → 0xC0000005) surface as an
             // immediate exit. Give it a moment and confirm it is still alive so a
@@ -405,6 +418,15 @@ public sealed class WinwsEngine : IAsyncDisposable
     /// </summary>
     private void ReapOrphanedEngines()
     {
+        // Never reap while another instance of this app is running: its winws is
+        // a LIVE engine, not an orphan, and killing it would silently drop that
+        // window's bypass mid-session (the headless --selftest-engine mode would
+        // do the same to an open GUI instance).
+        if (AnotherInstanceIsRunning())
+        {
+            return;
+        }
+
         string ourExe;
 
         try
@@ -439,6 +461,37 @@ public sealed class WinwsEngine : IAsyncDisposable
                 stray.Dispose();
             }
         }
+    }
+
+    private static bool AnotherInstanceIsRunning()
+    {
+        try
+        {
+            using Process self = Process.GetCurrentProcess();
+
+            foreach (Process peer in Process.GetProcessesByName(self.ProcessName))
+            {
+                try
+                {
+                    if (peer.Id != self.Id)
+                    {
+                        return true;
+                    }
+                }
+                finally
+                {
+                    peer.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            // If we cannot tell, assume there IS another instance: skipping the
+            // reap is far safer than killing a live engine.
+            return true;
+        }
+
+        return false;
     }
 
     private static int SafeId(Process p)

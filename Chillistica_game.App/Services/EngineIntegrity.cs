@@ -13,16 +13,24 @@ namespace Chillistica_game.App.Services;
 /// The app runs elevated (app.manifest requireAdministrator) and starts
 /// winws.exe as a child, so that child inherits admin with no second UAC
 /// prompt. Distribution is unzip-and-run, which means Engine\winws2\bin is
-/// writable by the unprivileged user — anyone running as that user could swap
-/// winws.exe, cygwin1.dll or WinDivert.dll for a payload and have it executed
-/// as administrator the next time the user presses the button.
+/// writable by the unprivileged user.
 ///
-/// The expected hashes therefore CANNOT live in a file next to the binaries
-/// (an attacker who can rewrite the binary can rewrite that file too). The
-/// manifest is compiled into this assembly as an embedded resource instead, so
-/// tampering requires replacing the app executable itself — which is the same
-/// binary the user already accepts at the UAC prompt, i.e. the existing trust
-/// boundary rather than a new hole.
+/// Three things this gate must do, and why:
+///  1. Pin the expected bytes. The hashes CANNOT live in a file next to the
+///     binaries (an attacker who can rewrite the binary can rewrite that file
+///     too), so the manifest is compiled into this assembly as an embedded
+///     resource. Tampering then requires replacing the app executable itself —
+///     the binary the user already accepts at the UAC prompt.
+///  2. Seal the directories. Hashing only the listed files misses a file that is
+///     ADDED. That is not academic: winws.exe statically imports wlanapi.dll,
+///     which is NOT a KnownDLL, so the loader resolves it from the image's own
+///     directory BEFORE System32. Dropping Engine\winws2\bin\wlanapi.dll changes
+///     no pinned hash, yet its DllMain would run as administrator. Any unexpected
+///     file in a sealed directory is therefore a hard failure.
+///  3. Close the check-to-launch window. The verified handles are kept open with
+///     FileShare.Read across Process.Start, which denies writers and deleters.
+///     This is safe for the image and its DLLs: the share check groups
+///     FILE_EXECUTE with read, so the loader can still map them.
 /// </summary>
 public static class EngineIntegrity
 {
@@ -40,20 +48,33 @@ public static class EngineIntegrity
         };
 
     /// <summary>
-    /// Verifies every pinned engine file against the embedded manifest and
-    /// throws <see cref="InvalidOperationException"/> on any mismatch (fail
-    /// closed). Call immediately before starting winws.
-    ///
-    /// Deliberately holds NO file locks across the launch. Keeping a
-    /// <see cref="FileShare.Read"/> handle open would deny delete-sharing, and
-    /// the Windows image loader opens DLLs with FILE_SHARE_READ|FILE_SHARE_DELETE
-    /// — so locking cygwin1.dll / WinDivert.dll / WinDivert64.sys could make
-    /// winws fail to load them or fail to install the driver. Closing a
-    /// microsecond-wide TOCTOU window is not worth breaking the engine: the real
-    /// threat this gate answers is a file swapped between sessions, which the
-    /// hash check catches completely.
+    /// Write-denying handles held on the verified engine files. Keep alive until
+    /// winws has started, then dispose, so nothing can swap a verified file in
+    /// the window between the hash and the launch.
     /// </summary>
-    public static void VerifyOrThrow()
+    public sealed class EngineLease : IDisposable
+    {
+        private readonly List<FileStream> _locks;
+
+        internal EngineLease(List<FileStream> locks) => _locks = locks;
+
+        public void Dispose()
+        {
+            foreach (FileStream stream in _locks)
+            {
+                try { stream.Dispose(); } catch { /* best effort */ }
+            }
+
+            _locks.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Verifies the pinned engine files and seals their directories. Throws
+    /// <see cref="InvalidOperationException"/> on any mismatch, missing required
+    /// file, or unexpected extra file (fail closed).
+    /// </summary>
+    public static EngineLease VerifyOrThrow()
     {
         EngineTrustManifest manifest = LoadEmbeddedManifest();
 
@@ -63,57 +84,146 @@ public static class EngineIntegrity
                 "Манифест доверия движка пуст — запуск отменён.");
         }
 
-        foreach (TrustedBinary entry in manifest.TrustedBinaries)
+        var pinnedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var held = new List<FileStream>();
+
+        try
         {
-            if (string.IsNullOrWhiteSpace(entry.Path) ||
-                string.IsNullOrWhiteSpace(entry.Sha256))
+            foreach (TrustedBinary entry in manifest.TrustedBinaries)
             {
-                continue;
-            }
-
-            // Manifest paths are app-root relative (Engine\winws2\bin\...).
-            string fullPath =
-                Path.Combine(AppContext.BaseDirectory, entry.Path);
-
-            if (!File.Exists(fullPath))
-            {
-                if (!entry.Required)
+                if (string.IsNullOrWhiteSpace(entry.Path) ||
+                    string.IsNullOrWhiteSpace(entry.Sha256))
                 {
                     continue;
                 }
 
-                throw new InvalidOperationException(
-                    $"Файл движка отсутствует: {entry.Path}");
+                string relative = Normalize(entry.Path);
+                pinnedPaths.Add(relative);
+
+                string fullPath =
+                    Path.Combine(AppContext.BaseDirectory, relative);
+
+                if (!File.Exists(fullPath))
+                {
+                    if (!entry.Required)
+                    {
+                        continue;
+                    }
+
+                    throw new InvalidOperationException(
+                        $"Файл движка отсутствует: {entry.Path}");
+                }
+
+                // FileShare.Read denies write and delete to everyone else for as
+                // long as this handle lives.
+                var stream = new FileStream(
+                    fullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read);
+
+                bool keepOpen = false;
+
+                try
+                {
+                    string actual = Convert.ToHexString(SHA256.HashData(stream));
+
+                    if (!actual.Equals(
+                            entry.Sha256.Trim(),
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException(
+                            $"Файл движка не прошёл проверку целостности: {entry.Path}. " +
+                            "Запуск отменён — возможна подмена.");
+                    }
+
+                    keepOpen = ShouldHoldAcrossLaunch(relative);
+                }
+                finally
+                {
+                    if (keepOpen)
+                    {
+                        held.Add(stream);
+                    }
+                    else
+                    {
+                        stream.Dispose();
+                    }
+                }
             }
 
-            string actual;
+            VerifySealedDirectories(manifest, pinnedPaths);
 
-            using (var stream = new FileStream(
-                       fullPath,
-                       FileMode.Open,
-                       FileAccess.Read,
-                       FileShare.ReadWrite | FileShare.Delete))
+            return new EngineLease(held);
+        }
+        catch
+        {
+            foreach (FileStream stream in held)
             {
-                actual = Convert.ToHexString(SHA256.HashData(stream));
+                try { stream.Dispose(); } catch { /* best effort */ }
             }
 
-            if (!actual.Equals(
-                    entry.Sha256.Trim(),
-                    StringComparison.OrdinalIgnoreCase))
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// A sealed directory must contain EXACTLY the pinned files. This is what
+    /// turns "attacker adds a DLL the loader will pick up" into a refusal.
+    /// </summary>
+    private static void VerifySealedDirectories(
+        EngineTrustManifest manifest,
+        HashSet<string> pinnedPaths)
+    {
+        foreach (string sealedDirectory in manifest.SealedDirectories)
+        {
+            if (string.IsNullOrWhiteSpace(sealedDirectory))
             {
-                throw new InvalidOperationException(
-                    $"Файл движка не прошёл проверку целостности: {entry.Path}. " +
-                    "Запуск отменён — возможна подмена.");
+                continue;
+            }
+
+            string fullDirectory =
+                Path.Combine(AppContext.BaseDirectory, Normalize(sealedDirectory));
+
+            if (!Directory.Exists(fullDirectory))
+            {
+                continue;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(
+                         fullDirectory, "*", SearchOption.AllDirectories))
+            {
+                string relative =
+                    Normalize(Path.GetRelativePath(AppContext.BaseDirectory, file));
+
+                if (!pinnedPaths.Contains(relative))
+                {
+                    throw new InvalidOperationException(
+                        $"В защищённом каталоге движка обнаружен посторонний файл: {relative}. " +
+                        "Запуск отменён — возможна подмена.");
+                }
             }
         }
     }
 
     /// <summary>
-    /// Best-effort advisory check: is the engine directory writable by a
-    /// non-admin principal? This is NOT a hard gate — refusing would break the
-    /// intended unzip-and-run distribution — but it is worth surfacing, because
-    /// in such a location the integrity check above is the only thing standing
-    /// between a local attacker and elevated code execution.
+    /// Hold the image and the user-mode DLLs it loads. The kernel driver
+    /// (.sys) is deliberately released after hashing: loading it is gated by
+    /// Windows driver-signature enforcement, and holding it could interfere with
+    /// service-side driver installation.
+    /// </summary>
+    private static bool ShouldHoldAcrossLaunch(string relativePath) =>
+        relativePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+        relativePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+
+    private static string Normalize(string path) =>
+        path.Replace('/', '\\').TrimStart('\\');
+
+    /// <summary>
+    /// Advisory only: is the engine directory writable by a non-admin principal?
+    /// Refusing outright would break the intended unzip-and-run distribution, but
+    /// in such a location the checks above are the only thing between a local
+    /// attacker and elevated code execution.
     /// </summary>
     public static bool IsEngineDirectoryUserWritable()
     {
@@ -157,8 +267,8 @@ public static class EngineIntegrity
         }
         catch
         {
-            // Unreadable ACL is not a reason to block anything — the hash gate
-            // is the real control.
+            // Unreadable ACL is not a reason to block: the hash + seal checks are
+            // the real control.
         }
 
         return false;
@@ -185,6 +295,9 @@ public static class EngineIntegrity
     public sealed class EngineTrustManifest
     {
         public int SchemaVersion { get; init; }
+
+        public IReadOnlyList<string> SealedDirectories { get; init; } =
+            Array.Empty<string>();
 
         public IReadOnlyList<TrustedBinary> TrustedBinaries { get; init; } =
             Array.Empty<TrustedBinary>();
