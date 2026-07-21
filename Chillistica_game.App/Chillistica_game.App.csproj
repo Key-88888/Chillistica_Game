@@ -18,6 +18,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Chillistica_game.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!--
       The engine trust manifest is COMPILED INTO the assembly, never shipped as a
       loose file. Distribution is unzip-and-run, so a loose copy would sit in the

@@ -201,7 +201,7 @@ public static class StrategyComposer
         }
     }
 
-    private static void ValidateArgumentsFragment(string fragment, string appId)
+    internal static void ValidateArgumentsFragment(string fragment, string appId)
     {
         if (string.IsNullOrWhiteSpace(fragment))
         {
