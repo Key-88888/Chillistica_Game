@@ -38,6 +38,12 @@ public sealed class WinwsEngine : IAsyncDisposable
     // reported to the UI as an engine crash.
     private volatile bool _intentionalStop;
 
+    // Set once teardown begins. StopImmediate closes the job handle, so any
+    // engine started after it would run WITHOUT the kill-on-job-close guarantee
+    // — i.e. it could be orphaned. An enable flow already in flight when the
+    // window closes must therefore not be allowed to start a new one.
+    private volatile bool _shuttingDown;
+
     /// <summary>
     /// Raised off the UI thread when a RUNNING engine dies on its own (crash,
     /// external kill, WinDivert driver unload). Without it the UI keeps claiming
@@ -106,6 +112,14 @@ public sealed class WinwsEngine : IAsyncDisposable
         try
         {
             ThrowIfDisposed();
+
+            // Teardown has begun (window closing / process exit): the job handle
+            // is already gone, so starting here would produce an unguarded,
+            // potentially orphaned elevated engine.
+            if (_shuttingDown)
+            {
+                return "ENGINE_SHUTTING_DOWN";
+            }
 
             // Restart cleanly if something is already running.
             await StopUnsafeAsync().ConfigureAwait(false);
@@ -272,6 +286,7 @@ public sealed class WinwsEngine : IAsyncDisposable
     /// </summary>
     public void StopImmediate()
     {
+        _shuttingDown = true;
         _intentionalStop = true;
 
         Process? process = _process;
@@ -513,6 +528,8 @@ public sealed class WinwsEngine : IAsyncDisposable
         {
             return;
         }
+
+        _shuttingDown = true;
 
         await _sync.WaitAsync().ConfigureAwait(false);
 

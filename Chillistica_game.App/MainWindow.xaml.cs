@@ -31,6 +31,9 @@ public partial class MainWindow : Window
     private bool _protectionEnabled;
     private bool _busy;
 
+    // Cancels an in-flight enable flow when the window closes.
+    private CancellationTokenSource? _enableCts;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -111,6 +114,12 @@ public partial class MainWindow : Window
 
         _logger.Info(stage: "ProtectionAnalysis", result: "Started");
 
+        // Closing the window mid-flow must abort the fallback loop: it can sit in
+        // multi-second probes, and a round that starts after teardown began would
+        // launch an engine the job object no longer guards.
+        _enableCts?.Dispose();
+        _enableCts = new CancellationTokenSource();
+
         try
         {
             var orchestrator =
@@ -119,7 +128,8 @@ public partial class MainWindow : Window
             (bool engineStarted, string engineResponse, IReadOnlyList<AppProtectionResult> appResults) =
                 await orchestrator.EnableAsync(
                     checkedAppIds,
-                    _settings.LastGoodStrategyIndex);
+                    _settings.LastGoodStrategyIndex,
+                    _enableCts.Token);
 
             _settingsService.Save(_settings);
             UpdateScenarioLabelsFromProtectionResults(appResults);
@@ -171,6 +181,12 @@ public partial class MainWindow : Window
             _logger.Info(
                 stage: "ProtectionAnalysis",
                 result: $"Completed; active={active}; skipped={skipped}; bestEffort={bestEffort}");
+        }
+        catch (OperationCanceledException)
+        {
+            // The window is closing; MainWindow_Closing already tore the engine
+            // down. Do not pop an error dialog during shutdown.
+            return;
         }
         catch (Exception ex)
         {
@@ -533,6 +549,11 @@ public partial class MainWindow : Window
         try
         {
             SaveSettings();
+
+            // Abort any in-flight enable flow FIRST: StopImmediate closes the
+            // job handle, so a fallback round that started afterwards would run
+            // an elevated engine with no kill-on-job-close guarantee.
+            _enableCts?.Cancel();
 
             // Synchronous teardown ONLY. This handler runs on the WPF dispatcher
             // thread; blocking it on DisposeAsync deadlocks, because the awaited
