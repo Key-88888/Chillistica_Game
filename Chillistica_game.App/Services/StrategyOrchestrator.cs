@@ -1,20 +1,24 @@
-using System.Linq;
-using System.Text.Json;
-
 namespace Chillistica_game.App.Services;
 
+/// <summary>
+/// Drives the one-button flow: skip apps already reachable directly, then for the
+/// rest launch winws and auto-cycle through each app's candidate strategies until
+/// the app becomes reachable (remembering the last-good index). Same behaviour as
+/// before, but talks to the in-process <see cref="WinwsEngine"/> instead of the
+/// old LocalSystem service over a named pipe.
+/// </summary>
 public sealed class StrategyOrchestrator
 {
     private const int MaxFallbackRounds = 4;
 
-    private readonly NamedPipeClientService _pipeClient;
+    private readonly WinwsEngine _engine;
     private readonly DiagnosticsService _diagnosticsService;
 
     public StrategyOrchestrator(
-        NamedPipeClientService pipeClient,
+        WinwsEngine engine,
         DiagnosticsService diagnosticsService)
     {
-        _pipeClient = pipeClient;
+        _engine = engine;
         _diagnosticsService = diagnosticsService;
     }
 
@@ -29,9 +33,7 @@ public sealed class StrategyOrchestrator
         foreach (string appId in checkedAppIds)
         {
             bool alreadyDirect =
-                await IsFullyReachableDirectAsync(
-                    appId,
-                    cancellationToken);
+                await IsFullyReachableDirectAsync(appId, cancellationToken);
 
             if (alreadyDirect)
             {
@@ -57,10 +59,7 @@ public sealed class StrategyOrchestrator
 
         foreach (string appId in bypassAppIds)
         {
-            candidateCounts[appId] =
-                await GetCandidateCountAsync(
-                    appId,
-                    cancellationToken);
+            candidateCounts[appId] = StrategyComposer.GetCandidateCount(appId);
         }
 
         var currentIndex =
@@ -80,18 +79,16 @@ public sealed class StrategyOrchestrator
              round < MaxFallbackRounds && stillPending.Count > 0;
              round++)
         {
-            // Every round must resend the FULL bypass set (not just the
-            // still-pending ones) — apps already confirmed Active keep their
-            // fixed index, otherwise they'd drop out of the composed profile.
-            IReadOnlyDictionary<string, int> selections =
+            // Every round resends the FULL bypass set (not just still-pending),
+            // so apps already confirmed Active keep their fixed index instead of
+            // dropping out of the composed winws command line.
+            var selections =
                 bypassAppIds.ToDictionary(
                     appId => appId,
                     appId => currentIndex[appId]);
 
             engineResponse =
-                await _pipeClient.StartEngineWithAppsAsync(
-                    selections,
-                    cancellationToken);
+                await _engine.StartWithAppsAsync(selections, cancellationToken);
 
             engineStarted =
                 engineResponse.Equals("ENGINE_STARTED", StringComparison.OrdinalIgnoreCase) ||
@@ -102,18 +99,14 @@ public sealed class StrategyOrchestrator
                 break;
             }
 
-            await Task.Delay(
-                TimeSpan.FromSeconds(2),
-                cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
 
             var nextPending = new List<string>();
 
             foreach (string appId in stillPending)
             {
                 bool nowReachable =
-                    await IsFullyReachableDirectAsync(
-                        appId,
-                        cancellationToken);
+                    await IsFullyReachableDirectAsync(appId, cancellationToken);
 
                 if (nowReachable)
                 {
@@ -185,43 +178,7 @@ public sealed class StrategyOrchestrator
         return true;
     }
 
-    private async Task<int> GetCandidateCountAsync(
-        string appId,
-        CancellationToken cancellationToken)
-    {
-        string catalogJson =
-            await _pipeClient.GetStrategyCatalogAsync(
-                appId,
-                cancellationToken);
-
-        try
-        {
-            using JsonDocument document =
-                JsonDocument.Parse(catalogJson);
-
-            if (document.RootElement.TryGetProperty(
-                    "Strategies",
-                    out JsonElement strategies) &&
-                strategies.ValueKind == JsonValueKind.Array)
-            {
-                int count = strategies.GetArrayLength();
-
-                return count > 0
-                    ? count
-                    : 1;
-            }
-        }
-        catch (JsonException)
-        {
-            // Catalog unavailable/malformed — fall back to a single candidate.
-        }
-
-        return 1;
-    }
-
-    private static int ClampIndex(
-        int index,
-        int candidateCount)
+    private static int ClampIndex(int index, int candidateCount)
     {
         if (candidateCount <= 0)
         {

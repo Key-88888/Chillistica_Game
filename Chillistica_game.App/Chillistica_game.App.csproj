@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -6,7 +6,49 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.4.2</Version>
+    <Version>0.5.0</Version>
+
+    <!-- App runs elevated so it can launch winws.exe (WinDivert) directly. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>Chillistica_game</AssemblyName>
+
+    <!-- Keep the framework-dependent single-file build tiny and predictable. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Engine payload shipped next to the app. winws.exe + its native support
+      files must be REAL files on disk (ExcludeFromSingleFile) because winws is
+      launched as a separate process and loads WinDivert / cygwin from disk.
+    -->
+    <Content Include="..\Engine\winws2\bin\*">
+      <Link>Engine\winws2\bin\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+
+    <Content Include="..\Engine\winws2\files\*">
+      <Link>Engine\winws2\files\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+
+    <Content Include="..\Engine\winws2\strategies\*.json">
+      <Link>Engine\winws2\strategies\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+
+    <Content Include="..\Engine\winws2\licenses\*.md;..\Engine\winws2\licenses\*.txt">
+      <Link>Engine\winws2\licenses\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 
 </Project>

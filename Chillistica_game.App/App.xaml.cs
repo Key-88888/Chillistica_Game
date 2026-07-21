@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using Chillistica_game.App.Services;
 
@@ -40,8 +42,76 @@ public partial class App : Application
             return;
         }
 
+        // Headless engine self-test (admin-only diagnostic): compose the winws
+        // command line for one app and actually launch the engine, so the real
+        // production code path (StrategyComposer + WinwsEngine) can be verified
+        // without the UI. Usage: --selftest-engine [appId] [resultFile]
+        if (e.Args.Length >= 1 &&
+            string.Equals(e.Args[0], "--selftest-engine", StringComparison.OrdinalIgnoreCase))
+        {
+            string appId = e.Args.Length >= 2 ? e.Args[1] : "youtube";
+            string resultPath = e.Args.Length >= 3
+                ? e.Args[2]
+                : Path.Combine(Path.GetTempPath(), "chillistica-selftest.txt");
+
+            Shutdown(RunEngineSelfTest(appId, resultPath));
+            return;
+        }
+
         base.OnStartup(e);
 
         new MainWindow().Show();
+    }
+
+    private static int RunEngineSelfTest(string appId, string resultPath)
+    {
+        var lines = new List<string>();
+
+        try
+        {
+            lines.Add($"appId={appId}");
+            lines.Add($"engineDir={StrategyComposer.EngineDirectory}");
+            lines.Add($"exe={StrategyComposer.WinwsExecutablePath}");
+            lines.Add($"exeExists={File.Exists(StrategyComposer.WinwsExecutablePath)}");
+
+            StrategyComposer.ComposedProfile composed =
+                StrategyComposer.Compose(new[] { (appId, 0) });
+
+            lines.Add($"args={composed.Arguments}");
+
+            var engine = new WinwsEngine();
+
+            string start = engine
+                .StartWithAppsAsync(new Dictionary<string, int> { [appId] = 0 })
+                .GetAwaiter()
+                .GetResult();
+
+            lines.Add($"startResult={start}");
+
+            Thread.Sleep(3000);
+
+            bool running = engine.IsRunning;
+            lines.Add($"isRunning={running}");
+            lines.Add("recentOutput:");
+            lines.Add(engine.RecentOutput);
+
+            engine.StopAsync().GetAwaiter().GetResult();
+            lines.Add($"stoppedIsRunning={engine.IsRunning}");
+
+            File.WriteAllLines(resultPath, lines);
+
+            bool captured =
+                engine.RecentOutput.Contains(
+                    "capture is started",
+                    StringComparison.OrdinalIgnoreCase);
+
+            return (start == "ENGINE_STARTED" && running && captured) ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            lines.Add($"exception={ex.Message}");
+            File.WriteAllLines(resultPath, lines);
+            return 2;
+        }
     }
 }

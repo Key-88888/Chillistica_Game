@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)]
     [string]$Version
 )
@@ -11,128 +11,119 @@ function New-CleanDirectory {
         [string]$Path
     )
 
-    if (Test-Path $Path) {
-        Remove-Item $Path -Recurse -Force
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Recurse -Force
     }
 
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
 }
 
+function Assert-PublishOutput {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublishDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BuildName
+    )
+
+    $appPath = Join-Path $PublishDirectory "Chillistica_game.exe"
+    $enginePath = Join-Path $PublishDirectory "Engine\winws2\bin\winws.exe"
+
+    if (-not (Test-Path -LiteralPath $appPath -PathType Leaf)) {
+        throw "$BuildName publish failed: Chillistica_game.exe was not created at $appPath"
+    }
+
+    if (-not (Test-Path -LiteralPath $enginePath -PathType Leaf)) {
+        throw "$BuildName publish failed: engine executable was not created at $enginePath"
+    }
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
-
-$serviceProject = Join-Path $repoRoot "Chillistica_game.Service\Chillistica_game.Service.csproj"
 $appProject = Join-Path $repoRoot "Chillistica_game.App\Chillistica_game.App.csproj"
-$appsettingsPath = Join-Path $repoRoot "Chillistica_game.Service\appsettings.json"
-
-if (-not (Test-Path $serviceProject)) {
-    throw "Service project not found: $serviceProject"
-}
-
-if (-not (Test-Path $appProject)) {
-    throw "App project not found: $appProject"
-}
-
-if (-not (Test-Path $appsettingsPath)) {
-    throw "Service appsettings not found: $appsettingsPath"
-}
-
-$appsettings = Get-Content $appsettingsPath -Raw | ConvertFrom-Json
-$activeProfile = [string]$appsettings.EngineProfile.ActiveProfilePath
-
-Write-Host "ActiveProfilePath=$activeProfile"
-
 $assemblyVersion = $Version -replace '^v', ''
 
 $artifacts = Join-Path $repoRoot "artifacts"
 $releaseDir = Join-Path $artifacts "release"
-$staging = Join-Path $artifacts "staging"
+$frameworkDependentDir = Join-Path $artifacts "staging-fd"
+$selfContainedDir = Join-Path $artifacts "staging-sc"
 
 New-CleanDirectory -Path $artifacts
 New-CleanDirectory -Path $releaseDir
-New-CleanDirectory -Path $staging
+New-CleanDirectory -Path $frameworkDependentDir
+New-CleanDirectory -Path $selfContainedDir
 
-$servicePublishDir = Join-Path $staging "service"
-$appPublishDir = Join-Path $staging "app"
-
-Write-Host "Publishing service..." -ForegroundColor Cyan
-
-dotnet publish `
-    $serviceProject `
-    -c Release `
-    -r win-x64 `
-    --self-contained true `
-    -p:PublishSingleFile=true `
-    -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:Version=$assemblyVersion `
-    -o $servicePublishDir
-
-if (-not (Test-Path (Join-Path $servicePublishDir "Chillistica_game.Service.exe"))) {
-    throw "Service publish failed: exe was not created."
-}
-
-Write-Host "Publishing app..." -ForegroundColor Cyan
-
+Write-Host "Publishing framework-dependent package..." -ForegroundColor Cyan
 dotnet publish `
     $appProject `
     -c Release `
     -r win-x64 `
+    -p:Version=$assemblyVersion `
+    --self-contained false `
+    -p:PublishSingleFile=true `
+    -o $frameworkDependentDir
+
+Assert-PublishOutput -PublishDirectory $frameworkDependentDir -BuildName "Framework-dependent"
+
+Write-Host "Publishing self-contained package..." -ForegroundColor Cyan
+dotnet publish `
+    $appProject `
+    -c Release `
+    -r win-x64 `
+    -p:Version=$assemblyVersion `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:Version=$assemblyVersion `
-    -o $appPublishDir
+    -p:EnableCompressionInSingleFile=true `
+    -o $selfContainedDir
 
-if (-not (Test-Path (Join-Path $appPublishDir "Chillistica_game.App.exe"))) {
-    throw "App publish failed: exe was not created."
-}
+Assert-PublishOutput -PublishDirectory $selfContainedDir -BuildName "Self-contained"
 
-Copy-Item ".\scripts\install-package.ps1" (Join-Path $staging "install-package.ps1") -Force
-Copy-Item ".\scripts\apply-update.ps1" (Join-Path $staging "apply-update.ps1") -Force
-Copy-Item ".\scripts\install.cmd" (Join-Path $staging "install.cmd") -Force
-
-if (Test-Path ".\scripts\uninstall-service.ps1") {
-    Copy-Item ".\scripts\uninstall-service.ps1" (Join-Path $staging "uninstall-service.ps1") -Force
-}
+$runFirstPath = Join-Path $PSScriptRoot "run-first.cmd"
+Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $frameworkDependentDir "run-first.cmd") -Force
+Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $selfContainedDir "run-first.cmd") -Force
 
 @"
 Chillistica_game $Version
 
-Установка:
-1. Распаковать архив.
-2. Запустить install.cmd.
-3. Подтвердить запуск от администратора.
-4. После установки приложение откроется автоматически.
+1. Распакуйте архив в отдельную папку.
+2. Дважды щёлкните run-first.cmd (или запустите Chillistica_game.exe напрямую).
+3. Подтвердите запрос контроля учётных записей (UAC).
+4. Нажмите единственную кнопку «Включить защиту».
 
-Состав:
-- Chillistica_game.App.exe
-- Chillistica_game.Service.exe
-- install.cmd
-- install-package.ps1
-"@ | Set-Content (Join-Path $staging "README_INSTALL.txt") -Encoding UTF8
+Для этой версии требуется .NET 8 Desktop Runtime. Если он отсутствует, run-first.cmd установит его автоматически.
+"@ | Set-Content -LiteralPath (Join-Path $frameworkDependentDir "README_FIRST.txt") -Encoding UTF8
 
-$zipPath = Join-Path $releaseDir "Chillistica_game-$Version-win-x64.zip"
+@"
+Chillistica_game $Version
 
-if (Test-Path $zipPath) {
-    Remove-Item $zipPath -Force
-}
+1. Распакуйте архив в отдельную папку.
+2. Дважды щёлкните run-first.cmd (или запустите Chillistica_game.exe напрямую).
+3. Подтвердите запрос контроля учётных записей (UAC).
+4. Нажмите единственную кнопку «Включить защиту».
+"@ | Set-Content -LiteralPath (Join-Path $selfContainedDir "README_FIRST.txt") -Encoding UTF8
+
+$frameworkDependentZip = Join-Path $releaseDir "Chillistica_game-$Version-win-x64.zip"
+$selfContainedZip = Join-Path $releaseDir "Chillistica_game-$Version-win-x64-standalone.zip"
 
 Compress-Archive `
-    -Path (Join-Path $staging "*") `
-    -DestinationPath $zipPath `
-    -CompressionLevel Optimal `
-    -Force
+    -Path (Join-Path $frameworkDependentDir "*") `
+    -DestinationPath $frameworkDependentZip `
+    -CompressionLevel Optimal
 
-Write-Host "RELEASE_ZIP=$zipPath" -ForegroundColor Green
+Compress-Archive `
+    -Path (Join-Path $selfContainedDir "*") `
+    -DestinationPath $selfContainedZip `
+    -CompressionLevel Optimal
 
-# Sign the release zip so auto-update clients can verify authenticity against
-# the pinned public key. The private key comes from a CI secret / local file and
-# is never committed. Without it, the zip is unsigned and clients refuse it.
-$signingKeyPem = $env:CHILLISTICA_SIGNING_KEY_PEM
-
-if (-not [string]::IsNullOrWhiteSpace($signingKeyPem)) {
-    & (Join-Path $PSScriptRoot "sign-release.ps1") -FilePath $zipPath -PrivateKeyPem $signingKeyPem
-    Write-Host "RELEASE_SIG=$zipPath.sig" -ForegroundColor Green
+if (-not [string]::IsNullOrWhiteSpace($env:CHILLISTICA_SIGNING_KEY_PEM)) {
+    $signScript = Join-Path $PSScriptRoot "sign-release.ps1"
+    & $signScript -FilePath $frameworkDependentZip -PrivateKeyPem $env:CHILLISTICA_SIGNING_KEY_PEM
+    & $signScript -FilePath $selfContainedZip -PrivateKeyPem $env:CHILLISTICA_SIGNING_KEY_PEM
 }
 else {
-    Write-Warning "CHILLISTICA_SIGNING_KEY_PEM not set: release zip is UNSIGNED. Auto-update clients will refuse it until you sign the release and pin the public key."
+    Write-Warning "CHILLISTICA_SIGNING_KEY_PEM is not set; release zips are unsigned."
 }
+
+Write-Host "RELEASE_ZIP=$frameworkDependentZip" -ForegroundColor Green
+Write-Host "RELEASE_ZIP=$selfContainedZip" -ForegroundColor Green
