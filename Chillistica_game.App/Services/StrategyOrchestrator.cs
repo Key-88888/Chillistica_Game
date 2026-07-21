@@ -3,9 +3,8 @@ namespace Chillistica_game.App.Services;
 /// <summary>
 /// Drives the one-button flow: skip apps already reachable directly, then for the
 /// rest launch winws and auto-cycle through each app's candidate strategies until
-/// the app becomes reachable (remembering the last-good index). Same behaviour as
-/// before, but talks to the in-process <see cref="WinwsEngine"/> instead of the
-/// old LocalSystem service over a named pipe.
+/// every app becomes reachable (remembering the last-good index). Talks to the
+/// in-process <see cref="WinwsEngine"/> rather than the old LocalSystem service.
 /// </summary>
 public sealed class StrategyOrchestrator
 {
@@ -55,12 +54,10 @@ public sealed class StrategyOrchestrator
             return (false, "ALL_DIRECT_NO_BYPASS_NEEDED", appResults);
         }
 
-        var candidateCounts = new Dictionary<string, int>();
-
-        foreach (string appId in bypassAppIds)
-        {
-            candidateCounts[appId] = StrategyComposer.GetCandidateCount(appId);
-        }
+        var candidateCounts =
+            bypassAppIds.ToDictionary(
+                appId => appId,
+                StrategyComposer.GetCandidateCount);
 
         var currentIndex =
             bypassAppIds.ToDictionary(
@@ -73,15 +70,15 @@ public sealed class StrategyOrchestrator
 
         bool engineStarted = false;
         string engineResponse = string.Empty;
-        List<string> stillPending = bypassAppIds;
 
-        for (int round = 0;
-             round < MaxFallbackRounds && stillPending.Count > 0;
-             round++)
+        // State of the MOST RECENT probe only — never accumulated across rounds.
+        var probedIndex = new Dictionary<string, int>(currentIndex);
+        var reachable = bypassAppIds.ToDictionary(appId => appId, _ => false);
+
+        for (int round = 0; round < MaxFallbackRounds; round++)
         {
-            // Every round resends the FULL bypass set (not just still-pending),
-            // so apps already confirmed Active keep their fixed index instead of
-            // dropping out of the composed winws command line.
+            // Every round resends the FULL bypass set, so apps that already work
+            // keep their index instead of dropping out of the composed argv.
             var selections =
                 bypassAppIds.ToDictionary(
                     appId => appId,
@@ -101,49 +98,74 @@ public sealed class StrategyOrchestrator
 
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
 
-            var nextPending = new List<string>();
+            // Re-probe the FULL set, not just the apps still failing. The composed
+            // command line changes between rounds, so a later round can regress an
+            // app an earlier round had working (e.g. an unscoped --filter-tcp
+            // fragment shadowing a hostlist-scoped one). Carrying forward an
+            // earlier "Active" would report a bypass that is no longer live.
+            probedIndex = new Dictionary<string, int>(selections);
 
-            foreach (string appId in stillPending)
+            var failing = new List<string>();
+
+            foreach (string appId in bypassAppIds)
             {
                 bool nowReachable =
                     await IsFullyReachableDirectAsync(appId, cancellationToken);
 
-                if (nowReachable)
-                {
-                    appResults.Add(
-                        new AppProtectionResult
-                        {
-                            AppId = appId,
-                            Outcome = AppProtectionOutcome.Active,
-                            StrategyIndex = currentIndex[appId],
-                            StrategyCount = candidateCounts[appId]
-                        });
+                reachable[appId] = nowReachable;
 
-                    lastGoodStrategyIndex[appId] = currentIndex[appId];
-                }
-                else
+                if (!nowReachable)
                 {
-                    nextPending.Add(appId);
-                    currentIndex[appId] =
-                        (currentIndex[appId] + 1) % Math.Max(candidateCounts[appId], 1);
+                    failing.Add(appId);
                 }
             }
 
-            stillPending = nextPending;
+            if (failing.Count == 0)
+            {
+                break;
+            }
+
+            foreach (string appId in failing)
+            {
+                currentIndex[appId] =
+                    (currentIndex[appId] + 1) % Math.Max(candidateCounts[appId], 1);
+            }
         }
 
-        foreach (string appId in stillPending)
+        foreach (string appId in bypassAppIds)
         {
-            appResults.Add(
-                new AppProtectionResult
-                {
-                    AppId = appId,
-                    Outcome = AppProtectionOutcome.BestEffortFailed,
-                    StrategyIndex = currentIndex[appId],
-                    StrategyCount = candidateCounts.GetValueOrDefault(appId, 1)
-                });
+            int usedIndex =
+                probedIndex.TryGetValue(appId, out int idx) ? idx : currentIndex[appId];
 
-            lastGoodStrategyIndex[appId] = currentIndex[appId];
+            if (reachable[appId])
+            {
+                appResults.Add(
+                    new AppProtectionResult
+                    {
+                        AppId = appId,
+                        Outcome = AppProtectionOutcome.Active,
+                        StrategyIndex = usedIndex,
+                        StrategyCount = candidateCounts[appId]
+                    });
+
+                // Only a strategy that actually worked is worth remembering.
+                lastGoodStrategyIndex[appId] = usedIndex;
+            }
+            else
+            {
+                appResults.Add(
+                    new AppProtectionResult
+                    {
+                        AppId = appId,
+                        Outcome = AppProtectionOutcome.BestEffortFailed,
+                        StrategyIndex = usedIndex,
+                        StrategyCount = candidateCounts.GetValueOrDefault(appId, 1)
+                    });
+
+                // Deliberately NOT persisted: saving a failed index poisons the
+                // next run, which would then start from a strategy already known
+                // not to work for this user.
+            }
         }
 
         return (engineStarted, engineResponse, appResults);

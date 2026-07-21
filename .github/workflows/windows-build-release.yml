@@ -29,12 +29,15 @@ jobs:
         run: |
           if ($env:GITHUB_REF -match "refs/tags/(?<tag>v.+)") {
               $version = $Matches["tag"]
+              $assemblyVersion = $version -replace '^v', ''
           }
           else {
               $version = "dev-$env:GITHUB_RUN_NUMBER"
+              $assemblyVersion = "0.0.$env:GITHUB_RUN_NUMBER"
           }
 
           "CHILLISTICA_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CHILLISTICA_ASSEMBLY_VERSION=$assemblyVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Version: $version"
 
       - name: Build release package
@@ -42,12 +45,13 @@ jobs:
         env:
           CHILLISTICA_SIGNING_KEY_PEM: ${{ secrets.CHILLISTICA_SIGNING_KEY_PEM }}
         run: |
-          .\scripts\build-release.ps1 -Version $env:CHILLISTICA_VERSION
+          .\scripts\build-release.ps1 -Version $env:CHILLISTICA_VERSION -AssemblyVersion $env:CHILLISTICA_ASSEMBLY_VERSION
 
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Chillistica_game-${{ env.CHILLISTICA_VERSION }}-win-x64
+          if-no-files-found: error
           path: |
             artifacts/release/Chillistica_game-${{ env.CHILLISTICA_VERSION }}-win-x64.zip
             artifacts/release/Chillistica_game-${{ env.CHILLISTICA_VERSION }}-win-x64.zip.sig
@@ -61,6 +65,7 @@ jobs:
           name: Chillistica_game ${{ env.CHILLISTICA_VERSION }}
           tag_name: ${{ env.CHILLISTICA_VERSION }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             artifacts/release/Chillistica_game-${{ env.CHILLISTICA_VERSION }}-win-x64.zip
             artifacts/release/Chillistica_game-${{ env.CHILLISTICA_VERSION }}-win-x64.zip.sig

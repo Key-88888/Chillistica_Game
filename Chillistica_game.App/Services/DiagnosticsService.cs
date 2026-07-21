@@ -169,8 +169,14 @@ public sealed class DiagnosticsService
             Timeout = HttpTimeout
         };
 
+        // Deliberately generic. These probes go to YouTube/Discord/Roblox/Epic,
+        // i.e. third parties on a network that may be actively inspected — a
+        // branded UA would announce "this machine runs a DPI-bypass tool" to
+        // every one of them. The branded UA stays only in UpdateCheckService,
+        // where GitHub's API requires one.
         httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "Chillistica_game/0.1");
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
 
         return httpClient;
     }

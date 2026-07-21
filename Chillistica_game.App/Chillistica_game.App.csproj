@@ -19,6 +19,20 @@
 
   <ItemGroup>
     <!--
+      The engine trust manifest is COMPILED INTO the assembly, never shipped as a
+      loose file. Distribution is unzip-and-run, so a loose copy would sit in the
+      same user-writable folder as the binaries it pins — an attacker who can
+      swap winws.exe could swap the manifest too, making the check worthless.
+      Embedded, tampering requires replacing the app executable itself, which is
+      the binary the user already accepts at the UAC prompt.
+    -->
+    <EmbeddedResource Include="..\Engine\winws2\trusted-manifest.json">
+      <LogicalName>Chillistica_game.trusted-manifest.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
       Engine payload shipped next to the app. winws.exe + its native support
       files must be REAL files on disk (ExcludeFromSingleFile) because winws is
       launched as a separate process and loads WinDivert / cygwin from disk.

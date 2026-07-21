@@ -10,9 +10,9 @@ namespace Chillistica_game.App.Services;
 /// argument string directly (no intermediate signed JSON profile) because the
 /// app now launches winws in-process.
 ///
-/// The port / forbidden-flag / path validation is kept: winws runs elevated, so
-/// a tampered strategy fragment would become elevated argv. Shipped strategies
-/// only use relative <c>files\...</c> paths and none of the forbidden flags.
+/// The port / argument / path validation is kept: winws runs elevated, so a
+/// tampered strategy fragment would become elevated argv. Shipped strategies
+/// only use relative <c>files\...</c> paths and explicitly allowed flags.
 /// </summary>
 public static class StrategyComposer
 {
@@ -24,14 +24,24 @@ public static class StrategyComposer
     private static readonly Regex PortTokenPattern =
         new(@"^\d{1,5}(-\d{1,5})?$", RegexOptions.Compiled);
 
-    private static readonly string[] ForbiddenFragmentFlags =
+    // Derived from the shipped strategies; extend deliberately when a new
+    // strategy needs a new flag because every accepted token runs elevated.
+    private static readonly HashSet<string> AllowedFragmentFlags =
+        new(StringComparer.OrdinalIgnoreCase)
     {
-        "--debug",
-        "--wf-save",
-        "--pidfile",
-        "--daemon",
-        "--hostlist-auto-debug",
-        "--wf-raw"
+        "--dpi-desync",
+        "--dpi-desync-fake-quic",
+        "--dpi-desync-fake-tls-mod",
+        "--dpi-desync-fooling",
+        "--dpi-desync-repeats",
+        "--dpi-desync-split-pos",
+        "--filter-l7",
+        "--filter-tcp",
+        "--filter-udp",
+        "--hostlist",
+        "--new",
+        "--wf-tcp",
+        "--wf-udp"
     };
 
     private static readonly JsonSerializerOptions ReadOptions =
@@ -202,23 +212,36 @@ public static class StrategyComposer
                      (char[]?)null,
                      StringSplitOptions.RemoveEmptyEntries))
         {
-            string flag =
-                token.StartsWith("--", StringComparison.Ordinal)
-                    ? token.Split('=', 2)[0].ToLowerInvariant()
-                    : string.Empty;
+            string normalizedToken = token.Trim('"', '\'');
 
-            if (flag.Length > 0 &&
-                ForbiddenFragmentFlags.Any(forbidden =>
-                    string.Equals(flag, forbidden, StringComparison.Ordinal)))
+            if (normalizedToken.StartsWith('@') ||
+                normalizedToken.StartsWith('$'))
             {
                 throw new InvalidOperationException(
-                    $"Strategy '{appId}' uses a forbidden winws flag '{flag}'.");
+                    $"Strategy '{appId}' fragment token '{token}' uses winws option-file loading.");
             }
 
-            if (token.Contains(":\\", StringComparison.Ordinal) ||
-                token.Contains("\\\\", StringComparison.Ordinal) ||
-                token.Contains('%', StringComparison.Ordinal) ||
-                token.Contains("..", StringComparison.Ordinal))
+            if (normalizedToken.StartsWith('-') &&
+                !normalizedToken.StartsWith("--", StringComparison.Ordinal))
+            {
+                normalizedToken = $"-{normalizedToken}";
+            }
+
+            string[] tokenParts = normalizedToken.Split('=', 2);
+            string flag = tokenParts[0];
+
+            if (!flag.StartsWith("--", StringComparison.Ordinal) ||
+                !AllowedFragmentFlags.Contains(flag))
+            {
+                throw new InvalidOperationException(
+                    $"Strategy '{appId}' fragment token '{token}' is not an allowed winws flag.");
+            }
+
+            if (tokenParts.Length == 2 &&
+                (tokenParts[1].Contains(":\\", StringComparison.Ordinal) ||
+                 tokenParts[1].Contains("\\\\", StringComparison.Ordinal) ||
+                 tokenParts[1].Contains('%', StringComparison.Ordinal) ||
+                 tokenParts[1].Contains("..", StringComparison.Ordinal)))
             {
                 throw new InvalidOperationException(
                     $"Strategy '{appId}' fragment token '{token}' references a disallowed path.");

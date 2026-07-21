@@ -38,6 +38,8 @@ public partial class MainWindow : Window
         _engine = new WinwsEngine(
             (stage, result) => _logger.Info(stage: stage, result: result));
 
+        _engine.EngineExitedUnexpectedly += OnEngineExitedUnexpectedly;
+
         _logger.Info(stage: "Application", result: "Started");
 
         LoadSettings();
@@ -197,6 +199,38 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// The engine died on its own after a successful start. Raised on a
+    /// threadpool thread, so marshal to the dispatcher before touching the UI.
+    /// Without this the window keeps showing "Защита включена" for an engine
+    /// that is no longer running.
+    /// </summary>
+    private void OnEngineExitedUnexpectedly(string exitCode)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_protectionEnabled)
+            {
+                return;
+            }
+
+            _protectionEnabled = false;
+
+            SetStatus(
+                active: false,
+                title: "Движок остановился",
+                description: "Обход прекращён — движок завершился сам");
+
+            ToggleProtectionButton.Content = "Включить защиту";
+            ToggleProtectionButton.IsEnabled = true;
+
+            EventText.Text =
+                $"Движок неожиданно завершился (код {exitCode}). Нажмите «Включить защиту», чтобы запустить заново.";
+
+            ResetScenarioLabels();
+        });
+    }
+
     private async Task DisableProtectionAsync()
     {
         _busy = true;
@@ -259,31 +293,74 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateNowButton_Click(object sender, RoutedEventArgs e)
+    private async void UpdateNowButton_Click(object sender, RoutedEventArgs e)
     {
-        // Distribution is manual (unzip-and-run), so the update button just opens
-        // the releases page in the browser rather than running an elevated apply.
+        if (_pendingUpdate is null)
+        {
+            return;
+        }
+
+        UpdateNowButton.IsEnabled = false;
+        UpdateBannerText.Text = $"Скачиваем {_pendingUpdate.TagName} и проверяем подпись...";
+
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = ReleasesPageUrl,
-                UseShellExecute = true
-            });
+            // Download the package AND its detached signature, and verify against
+            // the key pinned into this build BEFORE the user is pointed at the
+            // file. Just opening the releases page would mean the signature the
+            // release publishes is never checked by anything.
+            string staging =
+                await _updateCheckService.DownloadAndStageUpdateAsync(
+                    _pendingUpdate.DownloadUrl,
+                    _pendingUpdate.SignatureUrl);
+
+            UpdateCheckService.RevealVerifiedPackage(staging);
+
+            UpdateBannerText.Text =
+                $"{_pendingUpdate.TagName}: подпись проверена, архив открыт в проводнике";
 
             _logger.Info(
                 stage: "Update",
-                result: $"OpenedReleasesPage; tag={_pendingUpdate?.TagName}");
+                result: $"VerifiedAndRevealed; tag={_pendingUpdate.TagName}");
+
+            MessageBox.Show(
+                "Обновление скачано, и его подпись проверена встроенным ключом.\n\n" +
+                "Закройте программу, распакуйте архив поверх текущей папки и запустите заново.",
+                "Chillistica_game",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             _logger.Error(stage: "Update", exception: ex);
 
+            UpdateBannerText.Text = "Не удалось проверить обновление";
+
+            // Fall back to the releases page, but say plainly that this copy was
+            // NOT signature-checked, so the user can decide.
             MessageBox.Show(
-                $"Откройте страницу релизов вручную:\n{ReleasesPageUrl}",
+                $"Не удалось скачать или проверить обновление.\n\n{ex.Message}\n\n" +
+                $"Можно скачать вручную (подпись при этом не проверена):\n{ReleasesPageUrl}",
                 "Chillistica_game",
                 MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                MessageBoxImage.Warning);
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = ReleasesPageUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                // nothing more we can do
+            }
+        }
+        finally
+        {
+            UpdateNowButton.IsEnabled = true;
         }
     }
 
@@ -457,9 +534,12 @@ public partial class MainWindow : Window
         {
             SaveSettings();
 
-            // Take winws down with the app so the WinDivert capture never outlives
-            // the UI (the ProcessExit hook in WinwsEngine is the final backstop).
-            _engine.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // Synchronous teardown ONLY. This handler runs on the WPF dispatcher
+            // thread; blocking it on DisposeAsync deadlocks, because the awaited
+            // continuation is posted to the very message queue we would be
+            // blocking. That hung the app on close and left an elevated winws
+            // filtering traffic with no way to stop it.
+            _engine.StopImmediate();
 
             _logger.Info(stage: "Application", result: "Stopped");
         }

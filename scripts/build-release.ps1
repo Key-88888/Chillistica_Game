@@ -1,9 +1,19 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Version
+    [string]$Version,
+
+    [string]$AssemblyVersion
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Version.StartsWith('v') -and [string]::IsNullOrWhiteSpace($env:CHILLISTICA_SIGNING_KEY_PEM)) {
+    throw "CHILLISTICA_SIGNING_KEY_PEM must be set for tagged releases; refusing to produce an unsigned release."
+}
+
+if ([string]::IsNullOrWhiteSpace($AssemblyVersion)) {
+    $AssemblyVersion = $Version -replace '^v', ''
+}
 
 function New-CleanDirectory {
     param(
@@ -41,7 +51,6 @@ function Assert-PublishOutput {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $appProject = Join-Path $repoRoot "Chillistica_game.App\Chillistica_game.App.csproj"
-$assemblyVersion = $Version -replace '^v', ''
 
 $artifacts = Join-Path $repoRoot "artifacts"
 $releaseDir = Join-Path $artifacts "release"
@@ -58,7 +67,7 @@ dotnet publish `
     $appProject `
     -c Release `
     -r win-x64 `
-    -p:Version=$assemblyVersion `
+    -p:Version=$AssemblyVersion `
     --self-contained false `
     -p:PublishSingleFile=true `
     -o $frameworkDependentDir
@@ -70,7 +79,7 @@ dotnet publish `
     $appProject `
     -c Release `
     -r win-x64 `
-    -p:Version=$assemblyVersion `
+    -p:Version=$AssemblyVersion `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `

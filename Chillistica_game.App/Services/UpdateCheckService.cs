@@ -211,58 +211,29 @@ public sealed class UpdateCheckService
     }
 
     /// <summary>
-    /// Launches the TRUSTED, already-installed updater (which lives in the
-    /// admin-only install directory and cannot be tampered by a standard user)
-    /// elevated, passing the verified zip + signature. The freshly-downloaded
-    /// script is never executed, closing the user-writable-staging TOCTOU.
+    /// Reveals the signature-verified package in Explorer. There is no automatic
+    /// apply step any more: the app is distributed unzip-and-run, so "installing"
+    /// is the user replacing their folder. The value the signing chain still adds
+    /// is that the bytes were checked against the pinned key BEFORE the user is
+    /// pointed at them.
     /// </summary>
-    public void LaunchElevatedApplyUpdate(
-        string stagingFolderPath)
+    public static void RevealVerifiedPackage(string stagingFolderPath)
     {
-        string zipPath =
-            Path.Combine(stagingFolderPath, "update.zip");
+        string zipPath = Path.Combine(stagingFolderPath, "update.zip");
 
-        string signaturePath =
-            Path.Combine(stagingFolderPath, "update.zip.sig");
-
-        if (!File.Exists(zipPath) || !File.Exists(signaturePath))
+        if (!File.Exists(zipPath))
         {
             throw new FileNotFoundException(
-                "Проверенный пакет обновления не найден в папке загрузки.",
+                "Проверенный пакет обновления не найден.",
                 zipPath);
         }
 
-        string trustedUpdaterPath =
-            ResolveInstalledUpdaterPath();
-
-        if (!File.Exists(trustedUpdaterPath))
+        Process.Start(new ProcessStartInfo
         {
-            throw new FileNotFoundException(
-                "Доверенный установщик обновлений не найден. Переустановите приложение вручную.",
-                trustedUpdaterPath);
-        }
-
-        // Defence in depth: only ever elevate a script that lives in an admin-only
-        // location. If the app is run from a user-writable directory, its sibling
-        // apply-update.ps1 could be attacker-planted and would then execute as
-        // SYSTEM via runas — refuse rather than hand an untrusted script elevation.
-        if (!IsUnderProgramFiles(trustedUpdaterPath))
-        {
-            throw new InvalidOperationException(
-                "Обновление отменено: установщик обновлений находится вне защищённого каталога Program Files.");
-        }
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            Arguments =
-                $"-NoProfile -ExecutionPolicy Bypass -File \"{trustedUpdaterPath}\" " +
-                $"-ZipPath \"{zipPath}\" -SignaturePath \"{signaturePath}\"",
-            UseShellExecute = true,
-            Verb = "runas"
-        };
-
-        Process.Start(startInfo);
+            FileName = "explorer.exe",
+            Arguments = $"/select,\"{zipPath}\"",
+            UseShellExecute = true
+        });
     }
 
     private async Task DownloadToFileAsync(
@@ -284,55 +255,6 @@ public sealed class UpdateCheckService
         await response.Content.CopyToAsync(
             fileStream,
             cancellationToken);
-    }
-
-    private static bool IsUnderProgramFiles(string path)
-    {
-        string fullPath =
-            Path.GetFullPath(path);
-
-        foreach (Environment.SpecialFolder folder in new[]
-                 {
-                     Environment.SpecialFolder.ProgramFiles,
-                     Environment.SpecialFolder.ProgramFilesX86
-                 })
-        {
-            string root =
-                Environment.GetFolderPath(folder);
-
-            if (string.IsNullOrEmpty(root))
-            {
-                continue;
-            }
-
-            string normalizedRoot =
-                Path.GetFullPath(root)
-                    .TrimEnd(Path.DirectorySeparatorChar)
-                + Path.DirectorySeparatorChar;
-
-            if (fullPath.StartsWith(
-                    normalizedRoot,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static string ResolveInstalledUpdaterPath()
-    {
-        // App runs from <InstallDir>\App\; the trusted updater is installed one
-        // level up at <InstallDir>\apply-update.ps1 (admin-only).
-        DirectoryInfo? installRoot =
-            new DirectoryInfo(AppContext.BaseDirectory).Parent;
-
-        string root =
-            installRoot?.FullName
-            ?? AppContext.BaseDirectory;
-
-        return Path.Combine(root, "apply-update.ps1");
     }
 
     private static bool IsAllowedAssetUrl(string? url)
