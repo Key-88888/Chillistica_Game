@@ -1,7 +1,7 @@
 {
     "SchemaVersion": 2,
 
-    "_comment": "Compiled INTO the app as an embedded resource (see the csproj). Never trust the copy on disk. SealedDirectories must contain EXACTLY the pinned files: an ADDED file is a verification failure, which is what stops DLL planting (winws.exe statically imports non-KnownDLL wlanapi.dll, and the loader searches the image's own directory before System32). Engine\\winws2\\files is deliberately NOT sealed because the hostlists there are refreshed by the update-hostlists workflow.",
+    "_comment": "Compiled INTO the app as an embedded resource (see the csproj). Never trust the copy on disk. SealedDirectories must contain EXACTLY the pinned files: an ADDED file is a verification failure, which is what stops DLL planting (winws.exe statically imports non-KnownDLL wlanapi.dll, and the loader searches the image's own directory before System32). Engine\\winws2\\files is deliberately NOT sealed because the hostlists there are refreshed by the update-hostlists workflow. Hashes are taken over the bytes as STORED IN GIT (LF, enforced by .gitattributes) — never over a working copy that a Windows checkout may have rewritten to CRLF, or the packaged app fails its own integrity check and refuses to start.",
 
     "SealedDirectories": [
         "Engine\\winws2\\bin",
@@ -36,7 +36,7 @@
         },
         {
             "Path": "Engine\\winws2\\strategies\\discord.json",
-            "Sha256": "4F655CF9822574FDA5968244DE1E4EA0F6CA96AB25DFBEC4DF870E628B8C50DB",
+            "Sha256": "D6CBF8A34E6E82BFEEE961D15B2EAAF63D9397368E23644085B81BBF392FD2A6",
             "Required": true
         },
         {
@@ -46,12 +46,12 @@
         },
         {
             "Path": "Engine\\winws2\\strategies\\roblox.json",
-            "Sha256": "137A3A206CFBEA9B78384B878BAA98639B466B4CBDD197F5BA15F35110970E42",
+            "Sha256": "5956E60F66F1DC7901493624B88D6407367E804714EF141CB3460515715A2377",
             "Required": true
         },
         {
             "Path": "Engine\\winws2\\strategies\\youtube.json",
-            "Sha256": "8E2DCFA4583FFBBBF614790F041907361E2D8E29091E6617D694F361CA650E60",
+            "Sha256": "A2775B191E0D3A72CE6C468A358F5255A7AD3602D4BB2C0039775E0B27638401",
             "Required": true
         }
     ]
