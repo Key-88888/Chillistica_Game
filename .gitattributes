@@ -1,5 +1,10 @@
 # Hash-pinned engine binaries and data files must keep their EXACT bytes on
 # every checkout (no CRLF/LF conversion), or their pinned SHA256 in the strategy
 # / profile / trust-manifest JSONs will not match and the engine refuses to run.
-Engine/winws2/bin/**   -text
-Engine/winws2/files/** -text
+#
+# The whole engine tree is covered, not just bin/ and files/. The strategy JSONs
+# are hash-pinned in trusted-manifest.json too, and listing only some of the
+# pinned paths here is what shipped a dead v0.5.0 build: fortnite.json was stored
+# with LF, a Windows runner checked it out as CRLF, its hash stopped matching,
+# and EngineIntegrity.VerifyOrThrow refused to start the engine at all.
+Engine/winws2/** -text

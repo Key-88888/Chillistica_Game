@@ -49,8 +49,84 @@ function Assert-PublishOutput {
     }
 }
 
+function Assert-EngineTrust {
+    <#
+        Re-runs, at package time, exactly the check EngineIntegrity.VerifyOrThrow
+        performs on the user's machine: every pinned file must hash to its
+        manifest value, and every sealed directory must contain nothing else.
+
+        This exists because the app fails CLOSED on any mismatch — the engine
+        simply refuses to start — so a package whose bytes drift from the pinned
+        manifest is not "slightly off", it is dead on arrival. A Windows checkout
+        silently rewriting LF to CRLF in a pinned JSON is enough to cause it, and
+        that is invisible in the zip listing.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublishDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BuildName
+    )
+
+    $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+    $pinned = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($entry in $manifest.TrustedBinaries) {
+        $relative = $entry.Path -replace '/', '\'
+        [void]$pinned.Add($relative)
+
+        $fullPath = Join-Path $PublishDirectory $relative
+
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            if (-not $entry.Required) {
+                continue
+            }
+
+            throw "$BuildName engine trust check failed: pinned file missing: $relative"
+        }
+
+        $actual = (Get-FileHash -LiteralPath $fullPath -Algorithm SHA256).Hash
+
+        if ($actual -ne $entry.Sha256.Trim()) {
+            $size = (Get-Item -LiteralPath $fullPath).Length
+            throw @"
+$BuildName engine trust check failed: $relative does not match trusted-manifest.json.
+  expected SHA256 $($entry.Sha256.Trim())
+  actual   SHA256 $actual ($size bytes)
+The shipped app would refuse to start the engine. If this is a text file, check
+that .gitattributes marks it -text so no CRLF conversion happens on checkout.
+"@
+        }
+    }
+
+    foreach ($sealed in $manifest.SealedDirectories) {
+        $relativeDir = $sealed -replace '/', '\'
+        $sealedPath = Join-Path $PublishDirectory $relativeDir
+
+        if (-not (Test-Path -LiteralPath $sealedPath -PathType Container)) {
+            throw "$BuildName engine trust check failed: sealed directory missing: $relativeDir"
+        }
+
+        foreach ($file in Get-ChildItem -LiteralPath $sealedPath -Recurse -File) {
+            $relative = $file.FullName.Substring($PublishDirectory.TrimEnd('\').Length + 1)
+
+            if (-not $pinned.Contains($relative)) {
+                throw "$BuildName engine trust check failed: unpinned file in sealed directory: $relative"
+            }
+        }
+    }
+
+    Write-Host "$BuildName engine trust check passed ($($pinned.Count) pinned files)." -ForegroundColor Green
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $appProject = Join-Path $repoRoot "Chillistica_game.App\Chillistica_game.App.csproj"
+$trustManifest = Join-Path $repoRoot "Engine\winws2\trusted-manifest.json"
 
 $artifacts = Join-Path $repoRoot "artifacts"
 $releaseDir = Join-Path $artifacts "release"
@@ -73,6 +149,10 @@ dotnet publish `
     -o $frameworkDependentDir
 
 Assert-PublishOutput -PublishDirectory $frameworkDependentDir -BuildName "Framework-dependent"
+Assert-EngineTrust `
+    -PublishDirectory $frameworkDependentDir `
+    -ManifestPath $trustManifest `
+    -BuildName "Framework-dependent"
 
 Write-Host "Publishing self-contained package..." -ForegroundColor Cyan
 dotnet publish `
@@ -87,6 +167,10 @@ dotnet publish `
     -o $selfContainedDir
 
 Assert-PublishOutput -PublishDirectory $selfContainedDir -BuildName "Self-contained"
+Assert-EngineTrust `
+    -PublishDirectory $selfContainedDir `
+    -ManifestPath $trustManifest `
+    -BuildName "Self-contained"
 
 $runFirstPath = Join-Path $PSScriptRoot "run-first.cmd"
 Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $frameworkDependentDir "run-first.cmd") -Force
