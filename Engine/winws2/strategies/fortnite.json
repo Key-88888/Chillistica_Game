@@ -2,16 +2,16 @@
     "SchemaVersion": 1,
     "AppId": "fortnite",
     "DisplayName": "Fortnite / Epic Games",
-    "_comment": "Веб-адреса Epic на этом провайдере НЕ блокируются - ломается игровой трафик, который идёт по динамическим портам, а не по 443. Поэтому большинство кандидатов включают игровой профиль (диапазон 1024-65535), как Game Filter в сборке Flowseal. Порядок: сверху техники с fooling=badseq, подтверждённые живым замером на этом ТСПУ по YouTube. Игровые профили тяжелее обычных - они затрагивают весь динамический диапазон портов.",
+    "_comment": "Fortnite - это НЕСКОЛЬКО независимых подсистем, и они ломаются по отдельности: статус сервиса и вход (TCP 443), команда/пати (TCP 5222, XMPP), голосовой чат Vivox (UDP через STUN) и игровой трафик (UDP). Прежние кандидаты покрывали только 443, поэтому пати и голос не чинились в принципе. Порядок кандидатов: сверху полное покрытие, ниже - частичные комбинации для случаев, когда сломано только что-то одно. Техника десинхронизации везде badseq: подтверждена замером на этом ТСПУ (МГТС, AS25513) по YouTube.",
     "Strategies": [
         {
-            "StrategyId": "fn-badseq-multisplit-plus-game-udp",
-            "Description": "Вход в аккаунт (TCP 443, badseq-техника, подтверждённая замером на этом ТСПУ) ПЛЮС игровой трафик по динамическим UDP-портам. Именно игровой профиль чинит саму игру: матчмейкинг и игровые сервера ходят не по 443.",
-            "TcpPorts": "443",
-            "UdpPorts": "1024-65535",
+            "StrategyId": "fn-full-badseq-web-xmpp-voice-game",
+            "Description": "ВСЁ СРАЗУ: вход и статус (TCP 443), команда/пати (TCP 5222 XMPP), голосовой чат (Vivox по UDP через STUN) и игровой трафик. Начинать стоит отсюда: покрывает все четыре подсистемы, которые ломаются по отдельности.",
+            "TcpPorts": "443,5222",
+            "UdpPorts": "3478-3479,5060-5062,6250,9000-9100,12000-65000",
             "UsesUdp": true,
             "Confidence": "BestEffort",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=1024-65535 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-tcp=5222 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=3478-3479,5060-5062,6250 --filter-l7=stun --dpi-desync=fake --dpi-desync-repeats=6 --new --filter-udp=9000-9100,12000-65000 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2",
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-fortnite.txt",
@@ -31,13 +31,55 @@
             ]
         },
         {
-            "StrategyId": "fn-badseq-multisplit-plus-game-both",
-            "Description": "То же плюс игровой TCP-диапазон. Самый широкий вариант: покрывает и UDP-, и TCP-трафик игры. Тяжелее остальных, поэтому идёт вторым.",
-            "TcpPorts": "443,1024-65535",
-            "UdpPorts": "1024-65535",
+            "StrategyId": "fn-badseq-web-xmpp-voice",
+            "Description": "Вход, команда и голос, без игрового трафика. Для случая, когда матч заходит, но не собирается пати или молчит голосовой чат.",
+            "TcpPorts": "443,5222",
+            "UdpPorts": "3478-3479,5060-5062,6250",
             "UsesUdp": true,
             "Confidence": "BestEffort",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=1024-65535 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2 --new --filter-tcp=1024-65535 --dpi-desync=multisplit --dpi-desync-any-protocol=1 --dpi-desync-cutoff=n3 --dpi-desync-split-seqovl=568 --dpi-desync-split-pos=1 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\"",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-tcp=5222 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=3478-3479,5060-5062,6250 --filter-l7=stun --dpi-desync=fake --dpi-desync-repeats=6",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-fortnite.txt",
+                    "Sha256": "E67253D3296961E5E3C63DAE1A57C733160F241E38995F0AEAC0E10060E7ADD7",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "fn-badseq-web-xmpp",
+            "Description": "Вход и команда. Для случая, когда игра идёт, но не собирается пати.",
+            "TcpPorts": "443,5222",
+            "UdpPorts": "",
+            "UsesUdp": false,
+            "Confidence": "BestEffort",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-tcp=5222 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-fortnite.txt",
+                    "Sha256": "E67253D3296961E5E3C63DAE1A57C733160F241E38995F0AEAC0E10060E7ADD7",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "fn-badseq-web-xmpp-game",
+            "Description": "Вход, команда и игровой трафик, без голоса.",
+            "TcpPorts": "443,5222",
+            "UdpPorts": "9000-9100,12000-65000",
+            "UsesUdp": true,
+            "Confidence": "BestEffort",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-tcp=5222 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=9000-9100,12000-65000 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2",
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-fortnite.txt",
@@ -57,13 +99,13 @@
             ]
         },
         {
-            "StrategyId": "fn-badseq-multidisorder-plus-game-udp",
-            "Description": "Вторая badseq-техника (multidisorder), также подтверждённая замером, плюс игровой UDP.",
-            "TcpPorts": "443",
-            "UdpPorts": "1024-65535",
+            "StrategyId": "fn-multidisorder-web-xmpp-voice-game",
+            "Description": "То же полное покрытие, но вторая подтверждённая замером техника (multidisorder вместо multisplit) — на случай, если DPI реагирует на способ нарезки.",
+            "TcpPorts": "443,5222",
+            "UdpPorts": "3478-3479,5060-5062,6250,9000-9100,12000-65000",
             "UsesUdp": true,
             "Confidence": "BestEffort",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badseq --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=1024-65535 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badseq --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-tcp=5222 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badseq --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=3478-3479,5060-5062,6250 --filter-l7=stun --dpi-desync=fake --dpi-desync-repeats=6 --new --filter-udp=9000-9100,12000-65000 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2",
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-fortnite.txt",
@@ -78,34 +120,8 @@
             ]
         },
         {
-            "StrategyId": "fn-badseq-1000-plus-game-udp",
-            "Description": "badseq с меньшим шагом плюс игровой UDP — на случай, если DPI реагирует на величину смещения.",
-            "TcpPorts": "443",
-            "UdpPorts": "1024-65535",
-            "UsesUdp": true,
-            "Confidence": "BestEffort",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=1000 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=1024-65535 --dpi-desync=fake --dpi-desync-repeats=12 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp=\"files\\ACTIVE_GAME_UDP.bin\" --dpi-desync-cutoff=n2",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-fortnite.txt",
-                    "Sha256": "E67253D3296961E5E3C63DAE1A57C733160F241E38995F0AEAC0E10060E7ADD7",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\ACTIVE_GAME_UDP.bin",
-                    "Sha256": "E065870CB0D13152E6132807BBF42218A9E7CD8D96F5602B61674CC540F3A56E",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "fn-badseq-multisplit-web-only",
-            "Description": "Только вход в аккаунт и лаунчер, без игрового профиля. Годится, когда не открывается сам вход, а игра потом идёт нормально.",
+            "StrategyId": "fn-badseq-web-only",
+            "Description": "Только вход и статус сервиса. Минимальный вариант: если пропадает только надпись «сервер отключен», а дальше всё работает.",
             "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
@@ -125,8 +141,8 @@
             ]
         },
         {
-            "StrategyId": "fn-badseq-multidisorder-web-only",
-            "Description": "Только веб-часть, вторая badseq-техника.",
+            "StrategyId": "fn-multidisorder-web-only",
+            "Description": "Только вход, вторая техника.",
             "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
@@ -142,12 +158,12 @@
         },
         {
             "StrategyId": "fn-legacy-md5sig-web-only",
-            "Description": "Прежняя стратегия (md5sig, из preset1_example.cmd). На этом ТСПУ замером не подтверждена, оставлена последней для сетей, где работает именно она.",
+            "Description": "Прежняя стратегия (md5sig из preset1_example.cmd). На этом ТСПУ замером не подтверждена, оставлена последней для сетей, где работает именно она.",
             "TcpPorts": "443",
             "UdpPorts": "",
             "UsesUdp": false,
             "Confidence": "BestEffort",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-fortnite.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-fortnite.txt",
