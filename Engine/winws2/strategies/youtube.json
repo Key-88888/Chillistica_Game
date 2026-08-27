@@ -14,18 +14,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -40,18 +40,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=multisplit --dpi-desync-split-seqovl=652 --dpi-desync-split-pos=2 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -66,18 +66,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=multisplit --dpi-desync-split-pos=2,sniext+1 --dpi-desync-split-seqovl=679 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -92,12 +92,12 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=hostfakesplit --dpi-desync-fooling=ts --dpi-desync-hostfakesplit-mod=host=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
                     "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 }
@@ -113,18 +113,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fooling=ts --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -139,18 +139,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -165,18 +165,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=ts --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -191,18 +191,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,fakedsplit --dpi-desync-repeats=6 --dpi-desync-fooling=ts --dpi-desync-fakedsplit-pattern=0x00 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -217,12 +217,12 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badseq --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
                     "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 }
@@ -238,12 +238,12 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,hostfakesplit --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --dpi-desync-hostfakesplit-mod=host=www.google.com,altorder=1 --dpi-desync-fooling=ts --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
                     "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 }
@@ -259,12 +259,12 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=hostfakesplit --dpi-desync-repeats=4 --dpi-desync-fooling=ts --dpi-desync-hostfakesplit-mod=host=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
                     "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 }
@@ -280,18 +280,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=1000 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -306,12 +306,12 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-fake-tls-mod=none --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2 --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
                     "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 }
@@ -327,18 +327,18 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\files\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
                     "Required": true
                 }
             ]
@@ -353,12 +353,12 @@
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
-                    "Path": "Enginewinws2\fileslist-youtube.txt",
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
                     "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
                     "Required": true
                 },
                 {
-                    "Path": "Enginewinws2\filesquic_initial_www_google_com.bin",
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
                     "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
                     "Required": true
                 }

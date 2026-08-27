@@ -51,7 +51,7 @@
         },
         {
             "Path": "Engine\\winws2\\strategies\\youtube.json",
-            "Sha256": "D9EFE2D5478D21133C0D6EEDCC1DBF4193DE916F07F10E8143EEC9D7DA404743",
+            "Sha256": "4221A9434E28EFF3CB9724509C8CA5A93A66B8D2CF921BC78277B91544D3368D",
             "Required": true
         }
     ]
