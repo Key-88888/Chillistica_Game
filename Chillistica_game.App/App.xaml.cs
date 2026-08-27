@@ -43,9 +43,12 @@ public partial class App : Application
         }
 
         // Headless engine self-test (admin-only diagnostic): compose the winws
-        // command line for one app and actually launch the engine, so the real
-        // production code path (StrategyComposer + WinwsEngine) can be verified
-        // without the UI. Usage: --selftest-engine [appId] [resultFile]
+        // command line for one OR MORE apps and actually launch the engine, so the
+        // real production code path (StrategyComposer + WinwsEngine) can be verified
+        // without the UI. A comma-separated appId list (e.g. "youtube,discord,
+        // fortnite") composes the SAME multi-profile command the orchestrator sends
+        // when several apps are checked at once — the case the single-app test
+        // could not reach. Usage: --selftest-engine [appId[,appId...]] [resultFile]
         if (e.Args.Length >= 1 &&
             string.Equals(e.Args[0], "--selftest-engine", StringComparison.OrdinalIgnoreCase))
         {
@@ -69,20 +72,30 @@ public partial class App : Application
 
         try
         {
-            lines.Add($"appId={appId}");
+            string[] appIds = appId
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(a => a.ToLowerInvariant())
+                .ToArray();
+
+            if (appIds.Length == 0)
+            {
+                appIds = new[] { "youtube" };
+            }
+
+            lines.Add($"appId={string.Join(",", appIds)}");
             lines.Add($"engineDir={StrategyComposer.EngineDirectory}");
             lines.Add($"exe={StrategyComposer.WinwsExecutablePath}");
             lines.Add($"exeExists={File.Exists(StrategyComposer.WinwsExecutablePath)}");
 
             StrategyComposer.ComposedProfile composed =
-                StrategyComposer.Compose(new[] { (appId, 0) });
+                StrategyComposer.Compose(appIds.Select(a => (a, 0)).ToList());
 
             lines.Add($"args={composed.Arguments}");
 
             var engine = new WinwsEngine();
 
             string start = engine
-                .StartWithAppsAsync(new Dictionary<string, int> { [appId] = 0 })
+                .StartWithAppsAsync(appIds.ToDictionary(a => a, _ => 0))
                 .GetAwaiter()
                 .GetResult();
 

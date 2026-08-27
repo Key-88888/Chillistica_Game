@@ -18,11 +18,19 @@ public static class DiagnosticsTargetCatalog
         };
     }
 
+    // Both hosts must return a real HTTPS response (status < 500) for reachability
+    // to count, so every probe host has to actually answer GET / over TLS. The
+    // apex googlevideo.com does NOT: it resolves and accepts TCP but never answers
+    // a bare HTTPS GET (video is served only from rrX---snXXX.googlevideo.com with
+    // signed paths), so it returned no response every time — which pinned YouTube
+    // to "best effort / not confirmed" even when the bypass had fully unblocked it.
+    // i.ytimg.com is the YouTube thumbnail CDN: it answers over TLS and is covered
+    // by the ytimg.com hostlist entry, so the desync is still exercised end to end.
     private static readonly IReadOnlyList<DiagnosticsTarget> YouTube =
         new[]
         {
             new DiagnosticsTarget { ServiceName = "YouTube Web", Host = "www.youtube.com" },
-            new DiagnosticsTarget { ServiceName = "Google Video", Host = "googlevideo.com" }
+            new DiagnosticsTarget { ServiceName = "YouTube Images", Host = "i.ytimg.com" }
         };
 
     private static readonly IReadOnlyList<DiagnosticsTarget> Discord =
