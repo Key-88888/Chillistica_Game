@@ -1,4 +1,4 @@
-namespace Chillistica_game.App.Services;
+﻿namespace Chillistica_game.App.Services;
 
 /// <summary>
 /// Drives the one-button flow: skip apps already reachable directly, then for the
@@ -8,7 +8,12 @@ namespace Chillistica_game.App.Services;
 /// </summary>
 public sealed class StrategyOrchestrator
 {
-    private const int MaxFallbackRounds = 4;
+    // Hard ceiling only, not the real limit: the loop below runs as many rounds as
+    // the longest candidate ladder needs, so adding strategies to a catalog
+    // widens the search automatically. Previously this was a flat 4, which meant
+    // a 15-candidate ladder silently tried only the first four and reported
+    // failure — the app looked like it had "tried everything" when it had not.
+    private const int MaxFallbackRoundsCeiling = 40;
 
     private readonly WinwsEngine _engine;
     private readonly DiagnosticsService _diagnosticsService;
@@ -75,7 +80,12 @@ public sealed class StrategyOrchestrator
         var probedIndex = new Dictionary<string, int>(currentIndex);
         var reachable = bypassAppIds.ToDictionary(appId => appId, _ => false);
 
-        for (int round = 0; round < MaxFallbackRounds; round++)
+        int rounds =
+            Math.Min(
+                MaxFallbackRoundsCeiling,
+                Math.Max(1, candidateCounts.Values.DefaultIfEmpty(1).Max()));
+
+        for (int round = 0; round < rounds; round++)
         {
             // Every round resends the FULL bypass set, so apps that already work
             // keep their index instead of dropping out of the composed argv.
@@ -105,18 +115,24 @@ public sealed class StrategyOrchestrator
             // earlier "Active" would report a bypass that is no longer live.
             probedIndex = new Dictionary<string, int>(selections);
 
+            // Check the apps CONCURRENTLY too. With several apps ticked, doing this in
+            // sequence multiplied the per-app probe cost by the number of apps, on
+            // every single round of the ladder.
+            var probes =
+                await Task.WhenAll(
+                    bypassAppIds.Select(async appId => (
+                        AppId: appId,
+                        Reachable: await IsFullyReachableDirectAsync(appId, cancellationToken))));
+
             var failing = new List<string>();
 
-            foreach (string appId in bypassAppIds)
+            foreach (var probe in probes)
             {
-                bool nowReachable =
-                    await IsFullyReachableDirectAsync(appId, cancellationToken);
+                reachable[probe.AppId] = probe.Reachable;
 
-                reachable[appId] = nowReachable;
-
-                if (!nowReachable)
+                if (!probe.Reachable)
                 {
-                    failing.Add(appId);
+                    failing.Add(probe.AppId);
                 }
             }
 
@@ -183,21 +199,20 @@ public sealed class StrategyOrchestrator
             return false;
         }
 
-        foreach (DiagnosticsTarget target in targets)
-        {
-            DiagnosticsResult result =
-                await _diagnosticsService.CheckTargetAsync(
-                    target,
-                    useSystemProxy: false,
-                    cancellationToken);
+        // Probe every target CONCURRENTLY. Sequentially this cost the SUM of all
+        // timeouts, and it is paid once per app per fallback round: Fortnite has
+        // five targets, so one round could burn most of a minute before the
+        // ladder even advanced. These are independent network waits, so a round
+        // now costs the slowest target instead of their sum.
+        DiagnosticsResult[] results =
+            await Task.WhenAll(
+                targets.Select(target =>
+                    _diagnosticsService.CheckTargetAsync(
+                        target,
+                        useSystemProxy: false,
+                        cancellationToken)));
 
-            if (!result.IsSuccessful)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return results.All(r => r.IsSuccessful);
     }
 
     private static int ClampIndex(int index, int candidateCount)
