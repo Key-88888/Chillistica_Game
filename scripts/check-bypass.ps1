@@ -69,9 +69,9 @@ if ($tunnelUp) {
 
 $targets = @{
     youtube  = @("www.youtube.com", "i.ytimg.com")
-    discord  = @("discord.com", "cdn.discordapp.com")
-    roblox   = @("www.roblox.com")
-    fortnite = @("www.epicgames.com")
+    discord  = @("discord.com", "cdn.discordapp.com", "gateway.discord.gg")
+    roblox   = @("www.roblox.com", "games.roblox.com", "presence.roblox.com")
+    fortnite = @("www.epicgames.com", "account-public-service-prod.ol.epicgames.com", "lightswitch-public-service-prod.ol.epicgames.com", "fortnite-public-service-prod11.ol.epicgames.com")
 }
 
 $selected = @()

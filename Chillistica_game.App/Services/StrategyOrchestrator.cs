@@ -15,6 +15,9 @@ public sealed class StrategyOrchestrator
     // failure — the app looked like it had "tried everything" when it had not.
     private const int MaxFallbackRoundsCeiling = 40;
 
+    // How many times a target may fail before we believe it is actually blocked.
+    private const int ReachabilityAttempts = 3;
+
     private readonly WinwsEngine _engine;
     private readonly DiagnosticsService _diagnosticsService;
 
@@ -204,15 +207,43 @@ public sealed class StrategyOrchestrator
         // five targets, so one round could burn most of a minute before the
         // ladder even advanced. These are independent network waits, so a round
         // now costs the slowest target instead of their sum.
+        //
+        // Each target is retried before being declared unreachable. DPI filtering
+        // does not drop every connection, and an ordinary flaky request looks
+        // identical to a block. A single miss used to condemn the whole app: it
+        // was reported as needing a bypass and sent through the entire fallback
+        // ladder — measured on MGTS, Fortnite was flagged "best effort, not
+        // confirmed" while all five of its targets were in fact reachable.
         DiagnosticsResult[] results =
             await Task.WhenAll(
-                targets.Select(target =>
-                    _diagnosticsService.CheckTargetAsync(
-                        target,
-                        useSystemProxy: false,
-                        cancellationToken)));
+                targets.Select(target => CheckWithRetryAsync(target, cancellationToken)));
 
         return results.All(r => r.IsSuccessful);
+    }
+
+    private async Task<DiagnosticsResult> CheckWithRetryAsync(
+        DiagnosticsTarget target,
+        CancellationToken cancellationToken)
+    {
+        DiagnosticsResult result =
+            await _diagnosticsService.CheckTargetAsync(
+                target,
+                useSystemProxy: false,
+                cancellationToken);
+
+        // Only a failure is worth a second look; a success is already conclusive.
+        for (int attempt = 1; attempt < ReachabilityAttempts && !result.IsSuccessful; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            result =
+                await _diagnosticsService.CheckTargetAsync(
+                    target,
+                    useSystemProxy: false,
+                    cancellationToken);
+        }
+
+        return result;
     }
 
     private static int ClampIndex(int index, int candidateCount)
