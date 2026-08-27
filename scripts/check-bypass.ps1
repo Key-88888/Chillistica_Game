@@ -91,14 +91,26 @@ if ($selected.Count -eq 0) {
 function Measure-Target {
     param([string]$TargetHost, [string]$SourceIp)
 
-    $raw = & curl.exe -s -o NUL --max-time 12 --interface $SourceIp -w "%{http_code}|%{time_appconnect}" "https://$TargetHost/" 2>$null
-
     $code = 0
     $tls = 0.0
 
-    if ($raw -and $raw -match '^\s*(\d+)\|([\d\.]+)') {
-        $code = [int]$Matches[1]
-        $tls = [double]$Matches[2]
+    # Несколько попыток: фильтрация по SNI срабатывает не на 100% соединений,
+    # поэтому одиночная проба даёт то ложный успех, то ложный провал. Хватает
+    # одного удавшегося соединения, чтобы считать цель доступной.
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+        $raw = & curl.exe -s -o NUL --max-time 8 --interface $SourceIp -w "%{http_code}|%{time_appconnect}" "https://$TargetHost/" 2>$null
+
+        if ($raw -and $raw -match '^\s*(\d+)\|([\d\.]+)') {
+            $c = [int]$Matches[1]
+
+            if ($c -gt 0) {
+                $code = $c
+                $tls = [double]$Matches[2]
+                if ($c -lt 500) { break }
+            }
+        }
+
+        Start-Sleep -Milliseconds 400
     }
 
     [pscustomobject]@{
@@ -194,6 +206,7 @@ if ($FindStrategyFor) {
     Write-Host "Заблокировано без движка: $($baseBlocked -join ', ')" -ForegroundColor Yellow
 
     $results = @()
+    $engineFailures = 0
 
     for ($i = 0; $i -lt $strategies.Count; $i++) {
         $sid = $strategies[$i].StrategyId
@@ -215,7 +228,30 @@ if ($FindStrategyFor) {
         $results += [pscustomobject]@{ Index = $i; Id = $sid; Won = $won; Total = $baseBlocked.Count }
 
         if ($proc) { try { Wait-Process -Id $proc.Id -Timeout 60 -ErrorAction SilentlyContinue } catch { } }
-        try { [System.IO.File]::Delete($rf) } catch { }
+
+        # ВАЖНО: без этой проверки не отличить "стратегия не пробила" от "движок
+        # вообще не запустился" — в обоих случаях цели остаются недоступны, и
+        # вывод одинаково показывал бы "не пробила", обвиняя стратегию зря.
+        $engineOk = $false
+        $engineSays = "результат движка не прочитан"
+
+        if (Test-Path -LiteralPath $rf) {
+            $out = Get-Content -LiteralPath $rf -Raw
+            $engineOk = ($out -match 'startResult=ENGINE_STARTED') -and ($out -match 'isRunning=True')
+
+            if (-not $engineOk) {
+                $sr = if ($out -match 'startResult=([^\r\n]+)') { $Matches[1] } else { "?" }
+                $ex = if ($out -match 'exception=([^\r\n]+)') { " / " + $Matches[1] } else { "" }
+                $engineSays = "startResult=$sr$ex"
+            }
+
+            try { [System.IO.File]::Delete($rf) } catch { }
+        }
+
+        if (-not $engineOk) {
+            Write-Host "   ДВИЖОК НЕ ЗАПУСТИЛСЯ: $engineSays" -ForegroundColor Red
+            $engineFailures++
+        }
 
         if ($won -eq $baseBlocked.Count) {
             Write-Host "   -> пробила ВСЕ заблокированные цели" -ForegroundColor Green
@@ -232,6 +268,17 @@ if ($FindStrategyFor) {
     $best = $results | Sort-Object -Property Won -Descending | Select-Object -First 1
 
     Write-Host ""
+
+    if ($engineFailures -eq $results.Count) {
+        Write-Host "ДВИЖОК НЕ ЗАПУСТИЛСЯ НИ РАЗУ - результат ничего не говорит о стратегиях." -ForegroundColor Red
+        Write-Host "Сначала разберитесь, почему не стартует winws (см. строки выше)." -ForegroundColor Red
+        exit 2
+    }
+
+    if ($engineFailures -gt 0) {
+        Write-Host "Внимание: движок не запустился на $engineFailures из $($results.Count) прогонов - эти строки не про стратегии." -ForegroundColor Yellow
+    }
+
     if ($best.Won -eq $best.Total) {
         Write-Host "Лучшая: [$($best.Index)] $($best.Id) - пробивает всё. Её стоит поставить первой в $app.json." -ForegroundColor Green
     }
