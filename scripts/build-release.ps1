@@ -191,6 +191,7 @@ Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $selfContainedDir "
 $uninstallCmdPath = Join-Path $PSScriptRoot "uninstall.cmd"
 $uninstallPs1Path = Join-Path $PSScriptRoot "uninstall.ps1"
 $checkBypassPath = Join-Path $PSScriptRoot "check-bypass.ps1"
+$tryStrategyPath = Join-Path $PSScriptRoot "try-strategy.ps1"
 Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $frameworkDependentDir "uninstall.cmd") -Force
 Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $frameworkDependentDir "uninstall.ps1") -Force
 Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $selfContainedDir "uninstall.cmd") -Force
@@ -200,6 +201,11 @@ Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $selfContainedD
 # leaving the user with an ambiguous "best effort" label in the UI.
 Copy-Item -LiteralPath $checkBypassPath -Destination (Join-Path $frameworkDependentDir "check-bypass.ps1") -Force
 Copy-Item -LiteralPath $checkBypassPath -Destination (Join-Path $selfContainedDir "check-bypass.ps1") -Force
+
+# Ручной перебор: для игр обход нельзя подтвердить автоматически - веб-адреса
+# отвечают и без него, а зайти в матч скрипт не может.
+Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $frameworkDependentDir "try-strategy.ps1") -Force
+Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $selfContainedDir "try-strategy.ps1") -Force
 
 @"
 Chillistica_game $Version
