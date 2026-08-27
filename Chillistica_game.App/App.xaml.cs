@@ -66,7 +66,7 @@ public partial class App : Application
         // without the UI. A comma-separated appId list (e.g. "youtube,discord,
         // fortnite") composes the SAME multi-profile command the orchestrator sends
         // when several apps are checked at once — the case the single-app test
-        // could not reach. Usage: --selftest-engine [appId[,appId...]] [resultFile]
+        // could not reach. Usage: --selftest-engine [appId[,appId...]] [resultFile] [holdSeconds]
         if (e.Args.Length >= 1 &&
             string.Equals(e.Args[0], "--selftest-engine", StringComparison.OrdinalIgnoreCase))
         {
@@ -74,8 +74,20 @@ public partial class App : Application
             string resultPath = e.Args.Length >= 3
                 ? e.Args[2]
                 : Path.Combine(Path.GetTempPath(), "chillistica-selftest.txt");
+            // Optional 4th arg: keep the engine RUNNING this many seconds before
+            // tearing it down, so an external probe can measure reachability while
+            // the bypass is actually active. Without it the engine dies after ~3s
+            // and there is no window in which to measure anything.
+            int holdSeconds = 3;
 
-            Shutdown(RunEngineSelfTest(appId, resultPath));
+            if (e.Args.Length >= 4 &&
+                int.TryParse(e.Args[3], out int parsedHold) &&
+                parsedHold is > 0 and <= 600)
+            {
+                holdSeconds = parsedHold;
+            }
+
+            Shutdown(RunEngineSelfTest(appId, resultPath, holdSeconds));
             return;
         }
 
@@ -84,7 +96,7 @@ public partial class App : Application
         new MainWindow().Show();
     }
 
-    private static int RunEngineSelfTest(string appId, string resultPath)
+    private static int RunEngineSelfTest(string appId, string resultPath, int holdSeconds = 3)
     {
         var lines = new List<string>();
 
@@ -118,8 +130,9 @@ public partial class App : Application
                 .GetResult();
 
             lines.Add($"startResult={start}");
+            lines.Add($"holdSeconds={holdSeconds}");
 
-            Thread.Sleep(3000);
+            Thread.Sleep(TimeSpan.FromSeconds(holdSeconds));
 
             bool running = engine.IsRunning;
             lines.Add($"isRunning={running}");
