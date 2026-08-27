@@ -30,11 +30,118 @@
 param(
     # Passed by the in-app "Удалить программу" button, which has already shown
     # its own confirmation dialog — do not ask a second time.
-    [switch]$AssumeYes
+    [switch]$AssumeYes,
+
+    # Папка установки. Нужна, только если скрипт запускают НЕ из неё — например,
+    # когда программу удаляют на чужой машине, где архива уже нет. Без него
+    # скрипт ищет установку сам.
+    [string]$Path = ""
 )
 
 $ErrorActionPreference = "Continue"
-$scriptDir = $PSScriptRoot
+
+function Test-LooksLikeInstall {
+    param([string]$Dir)
+
+    if ([string]::IsNullOrWhiteSpace($Dir) -or -not (Test-Path -LiteralPath $Dir -PathType Container)) {
+        return $false
+    }
+
+    # Раскладка 0.5.0+ (распаковал-и-запустил): всё в корне.
+    if ((Test-Path -LiteralPath (Join-Path $Dir "Chillistica_game.exe")) -or
+        (Test-Path -LiteralPath (Join-Path $Dir "Engine\winws2"))) {
+        return $true
+    }
+
+    # Раскладка версий до 0.5.0: app\ + service\, движок внутри service\Engine.
+    # Именно она стоит на машинах, которые обновлялись давно, и именно её надо
+    # уметь найти при удалении на чужом компьютере.
+    if ((Test-Path -LiteralPath (Join-Path $Dir "app\Chillistica_game.App.exe")) -or
+        (Test-Path -LiteralPath (Join-Path $Dir "service\Chillistica_game.Service.exe"))) {
+        return $true
+    }
+
+    return $false
+}
+
+function Find-Installation {
+    <#
+        Находит папку программы, когда скрипт запущен не из неё. Это основной
+        сценарий удаления на чужой машине: архива с uninstall.cmd там нет,
+        человек запускает один скачанный скрипт.
+
+        Порядок источников — от самого достоверного к догадкам.
+    #>
+
+    # 1. Запущенные процессы: самый надёжный источник, путь берётся у самой ОС.
+    foreach ($name in @("Chillistica_game", "winws")) {
+        foreach ($p in (Get-Process -Name $name -ErrorAction SilentlyContinue)) {
+            $exePath = $null
+            try { $exePath = $p.Path } catch { $exePath = $null }
+
+            if ($exePath) {
+                $dir = Split-Path $exePath -Parent
+                # winws лежит в Engine\winws2\bin — поднимаемся к корню программы.
+                if ($dir -match '\Engine\winws2\bin$') {
+                    $dir = Split-Path (Split-Path (Split-Path $dir -Parent) -Parent) -Parent
+                }
+                if (Test-LooksLikeInstall $dir) { return $dir }
+            }
+        }
+    }
+
+    # 2. Старая служба версии до 0.5.0 знает свой путь.
+    $svc = Get-CimInstance Win32_Service -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq "Chillistica_game.Service" } | Select-Object -First 1
+
+    if ($svc -and $svc.PathName) {
+        $exePath = ($svc.PathName -replace '^"([^"]+)".*$', '$1').Trim('"')
+        $dir = Split-Path $exePath -Parent
+        # Служба ставилась в <корень>\Service\
+        foreach ($cand in @($dir, (Split-Path $dir -Parent))) {
+            if (Test-LooksLikeInstall $cand) { return $cand }
+        }
+    }
+
+    # 3. Типичные места распаковки.
+    $guesses = @(
+        (Join-Path $env:ProgramFiles "Chillistica_game"),
+        (Join-Path ${env:ProgramFiles(x86)} "Chillistica_game"),
+        (Join-Path $env:USERPROFILE "Downloads"),
+        (Join-Path $env:USERPROFILE "Desktop"),
+        (Join-Path $env:USERPROFILE "Documents")
+    ) | Where-Object { $_ }
+
+    foreach ($g in $guesses) {
+        if (Test-LooksLikeInstall $g) { return $g }
+
+        if (Test-Path -LiteralPath $g -PathType Container) {
+            foreach ($sub in (Get-ChildItem -LiteralPath $g -Directory -ErrorAction SilentlyContinue |
+                              Where-Object { $_.Name -like "*hillistica*" })) {
+                if (Test-LooksLikeInstall $sub.FullName) { return $sub.FullName }
+            }
+        }
+    }
+
+    return $null
+}
+
+# Папка программы: параметр -> папка скрипта -> автопоиск.
+if ($Path) {
+    $scriptDir = $Path
+}
+elseif (Test-LooksLikeInstall $PSScriptRoot) {
+    $scriptDir = $PSScriptRoot
+}
+else {
+    $scriptDir = Find-Installation
+}
+
+if (-not $scriptDir) {
+    # Папку не нашли, но служба/драйвер/настройки могли остаться — их всё равно
+    # надо снять, поэтому работаем дальше с пустым путём программы.
+    $scriptDir = ""
+}
 
 function Write-Step {
     param([string]$Text)
@@ -358,12 +465,15 @@ function Test-SafeToDelete {
         }
     }
 
-    # Каталог обязан выглядеть как наша распакованная программа.
+    # Каталог обязан выглядеть как наша распакованная программа — в раскладке
+    # 0.5.0+ (всё в корне) либо в раскладке версий до 0.5.0 (app\ + service\).
     $hasExe = Test-Path -LiteralPath (Join-Path $full "Chillistica_game.exe")
     $hasEngine = Test-Path -LiteralPath (Join-Path $full "Engine\winws2")
+    $hasLegacyApp = Test-Path -LiteralPath (Join-Path $full "app\Chillistica_game.App.exe")
+    $hasLegacySvc = Test-Path -LiteralPath (Join-Path $full "service\Chillistica_game.Service.exe")
 
-    if (-not ($hasExe -or $hasEngine)) {
-        return @{ Ok = $false; Reason = "в папке нет ни Chillistica_game.exe, ни Engine\winws2 — не похоже на папку программы" }
+    if (-not ($hasExe -or $hasEngine -or $hasLegacyApp -or $hasLegacySvc)) {
+        return @{ Ok = $false; Reason = "в папке нет ни Chillistica_game.exe, ни Engine\winws2, ни app\/service\ от старых версий - не похоже на папку программы" }
     }
 
     return @{ Ok = $true; Reason = "" }
