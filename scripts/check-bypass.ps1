@@ -22,7 +22,12 @@
 
 param(
     [string]$Apps = "youtube,discord",
-    [int]$HoldSeconds = 45
+    [int]$HoldSeconds = 45,
+
+    # Перебрать ВСЕ стратегии-кандидаты для одного приложения и показать, какая
+    # из них реально пробивает DPI. Без этого проверяется только кандидат 0, а
+    # приложение в реальной работе перебирает всю лестницу.
+    [string]$FindStrategyFor = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -115,19 +120,136 @@ foreach ($t in $selected) {
     "{0,-24} {1}" -f $t.Target, $state
 }
 
-$exe = Join-Path (Split-Path $PSScriptRoot -Parent) "Chillistica_game.exe"
+# --- поиск exe (нужен и режиму перебора, и обычному) ------------------------
+function Resolve-AppExe {
+    param([string]$ScriptRoot)
 
-if (-not (Test-Path -LiteralPath $exe)) {
-    $exe = Join-Path $PSScriptRoot "Chillistica_game.exe"
-}
+    $candidates = @(
+        (Join-Path (Split-Path $ScriptRoot -Parent) "Chillistica_game.exe"),
+        (Join-Path $ScriptRoot "Chillistica_game.exe")
+    )
 
-if (-not (Test-Path -LiteralPath $exe)) {
-    $found = Get-ChildItem -Path (Split-Path $PSScriptRoot -Parent) -Filter "Chillistica_game.exe" -Recurse -ErrorAction SilentlyContinue |
+    foreach ($c in $candidates) {
+        if (Test-Path -LiteralPath $c) { return $c }
+    }
+
+    $found = Get-ChildItem -Path (Split-Path $ScriptRoot -Parent) -Filter "Chillistica_game.exe" -Recurse -ErrorAction SilentlyContinue |
         Select-Object -First 1
-    if ($found) { $exe = $found.FullName }
+
+    if ($found) { return $found.FullName }
+    return $null
 }
 
-if (-not (Test-Path -LiteralPath $exe)) {
+function Invoke-EngineWindow {
+    <#
+        Поднимает движок на заданное время и возвращает объект процесса.
+        Замер делается ПОКА он жив, поэтому ждать завершения здесь нельзя.
+    #>
+    param([string]$ExePath, [string]$Spec, [int]$Seconds, [string]$ResultFile)
+
+    Start-Process -FilePath $ExePath -ArgumentList @("--selftest-engine", $Spec, $ResultFile, "$Seconds") -PassThru
+}
+
+# --- режим перебора стратегий -----------------------------------------------
+if ($FindStrategyFor) {
+    $app = $FindStrategyFor.Trim().ToLower()
+
+    if (-not $targets.ContainsKey($app)) {
+        Write-Host "Не знаю приложение '$app'. Доступны: $($targets.Keys -join ', ')" -ForegroundColor Red
+        exit 1
+    }
+
+    $exePath = Resolve-AppExe -ScriptRoot $PSScriptRoot
+    if (-not $exePath) {
+        Write-Host "Не нашёл Chillistica_game.exe рядом со скриптом." -ForegroundColor Red
+        exit 1
+    }
+
+    $catalog = Join-Path (Join-Path (Split-Path $exePath -Parent) "Engine\winws2\strategies") "$app.json"
+
+    if (-not (Test-Path -LiteralPath $catalog)) {
+        Write-Host "Не нашёл каталог стратегий: $catalog" -ForegroundColor Red
+        exit 1
+    }
+
+    $strategies = (Get-Content -LiteralPath $catalog -Raw | ConvertFrom-Json).Strategies
+    $appTargets = $targets[$app]
+
+    Write-Host ""
+    Write-Host "== Перебираю стратегии '$app': всего $($strategies.Count) ==" -ForegroundColor Cyan
+
+    # База: что недоступно БЕЗ движка. Пробовать пробить то, что и так работает,
+    # смысла нет, и такие цели только зашумят вывод.
+    $baseBlocked = @()
+    foreach ($h in $appTargets) {
+        $r = Measure-Target -TargetHost $h -SourceIp $srcIp
+        if (-not $r.Ok) { $baseBlocked += $h }
+    }
+
+    if ($baseBlocked.Count -eq 0) {
+        Write-Host "Все цели '$app' и так доступны без движка - перебирать нечего." -ForegroundColor Green
+        exit 0
+    }
+
+    Write-Host "Заблокировано без движка: $($baseBlocked -join ', ')" -ForegroundColor Yellow
+
+    $results = @()
+
+    for ($i = 0; $i -lt $strategies.Count; $i++) {
+        $sid = $strategies[$i].StrategyId
+        Write-Host ""
+        Write-Host "--- [$i] $sid ---" -ForegroundColor Cyan
+
+        $rf = Join-Path $env:TEMP ("chillistica-find-" + [guid]::NewGuid().ToString('N') + ".txt")
+        $proc = Invoke-EngineWindow -ExePath $exePath -Spec "${app}:$i" -Seconds 25 -ResultFile $rf
+
+        Start-Sleep -Seconds 6
+
+        $won = 0
+        foreach ($h in $baseBlocked) {
+            $r = Measure-Target -TargetHost $h -SourceIp $srcIp
+            if ($r.Ok) { $won++ }
+            "   {0,-24} {1}" -f $h, $(if ($r.Ok) { "ПРОБИЛО (code=$($r.Code))" } else { "нет" })
+        }
+
+        $results += [pscustomobject]@{ Index = $i; Id = $sid; Won = $won; Total = $baseBlocked.Count }
+
+        if ($proc) { try { Wait-Process -Id $proc.Id -Timeout 60 -ErrorAction SilentlyContinue } catch { } }
+        try { [System.IO.File]::Delete($rf) } catch { }
+
+        if ($won -eq $baseBlocked.Count) {
+            Write-Host "   -> пробила ВСЕ заблокированные цели" -ForegroundColor Green
+        }
+    }
+
+    Write-Host ""
+    Write-Host "===================== ИТОГ =====================" -ForegroundColor Yellow
+    foreach ($r in $results) {
+        $mark = if ($r.Won -eq $r.Total) { "ПОЛНОСТЬЮ" } elseif ($r.Won -gt 0) { "частично" } else { "не пробила" }
+        "[{0}] {1,-42} {2}/{3}  {4}" -f $r.Index, $r.Id, $r.Won, $r.Total, $mark
+    }
+
+    $best = $results | Sort-Object -Property Won -Descending | Select-Object -First 1
+
+    Write-Host ""
+    if ($best.Won -eq $best.Total) {
+        Write-Host "Лучшая: [$($best.Index)] $($best.Id) - пробивает всё. Её стоит поставить первой в $app.json." -ForegroundColor Green
+    }
+    elseif ($best.Won -gt 0) {
+        Write-Host "Лучшая: [$($best.Index)] $($best.Id) - пробивает $($best.Won) из $($best.Total)." -ForegroundColor Yellow
+        Write-Host "Полностью не справилась ни одна: нужны новые параметры desync." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "Ни одна стратегия не пробила. Нужны другие параметры desync." -ForegroundColor Red
+    }
+
+    exit 0
+}
+
+
+$exe = Resolve-AppExe -ScriptRoot $PSScriptRoot
+
+if (-not $exe) {
     Write-Host "Не нашёл Chillistica_game.exe рядом со скриптом." -ForegroundColor Red
     exit 1
 }

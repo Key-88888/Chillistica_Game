@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -66,7 +66,7 @@ public partial class App : Application
         // without the UI. A comma-separated appId list (e.g. "youtube,discord,
         // fortnite") composes the SAME multi-profile command the orchestrator sends
         // when several apps are checked at once — the case the single-app test
-        // could not reach. Usage: --selftest-engine [appId[,appId...]] [resultFile] [holdSeconds]
+        // could not reach. Usage: --selftest-engine [app[:strategyIndex][,...]] [resultFile] [holdSeconds]
         if (e.Args.Length >= 1 &&
             string.Equals(e.Args[0], "--selftest-engine", StringComparison.OrdinalIgnoreCase))
         {
@@ -102,30 +102,52 @@ public partial class App : Application
 
         try
         {
-            string[] appIds = appId
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(a => a.ToLowerInvariant())
-                .ToArray();
+            // Each entry is "app" or "app:index", where index picks WHICH strategy
+            // candidate to run. Without it only candidate 0 is ever exercised, which
+            // is misleading: a target that candidate 0 fails to unblock may well be
+            // unblocked by candidate 2, and that is exactly what the fallback ladder
+            // in the real app would try next.
+            var picks = new List<(string AppId, int Index)>();
 
-            if (appIds.Length == 0)
+            foreach (string raw in appId.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
-                appIds = new[] { "youtube" };
+                string[] parts = raw.Split(':', 2);
+                string name = parts[0].Trim().ToLowerInvariant();
+
+                if (name.Length == 0)
+                {
+                    continue;
+                }
+
+                int index = 0;
+
+                if (parts.Length == 2 && int.TryParse(parts[1], out int parsedIndex) && parsedIndex >= 0)
+                {
+                    index = parsedIndex;
+                }
+
+                picks.Add((name, index));
             }
 
-            lines.Add($"appId={string.Join(",", appIds)}");
+            if (picks.Count == 0)
+            {
+                picks.Add(("youtube", 0));
+            }
+
+            lines.Add($"appId={string.Join(",", picks.Select(p => $"{p.AppId}:{p.Index}"))}");
             lines.Add($"engineDir={StrategyComposer.EngineDirectory}");
             lines.Add($"exe={StrategyComposer.WinwsExecutablePath}");
             lines.Add($"exeExists={File.Exists(StrategyComposer.WinwsExecutablePath)}");
 
             StrategyComposer.ComposedProfile composed =
-                StrategyComposer.Compose(appIds.Select(a => (a, 0)).ToList());
+                StrategyComposer.Compose(picks);
 
             lines.Add($"args={composed.Arguments}");
 
             var engine = new WinwsEngine();
 
             string start = engine
-                .StartWithAppsAsync(appIds.ToDictionary(a => a, _ => 0))
+                .StartWithAppsAsync(picks.ToDictionary(p => p.AppId, p => p.Index))
                 .GetAwaiter()
                 .GetResult();
 
