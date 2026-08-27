@@ -257,7 +257,7 @@ public sealed class UpdateCheckService
             cancellationToken);
     }
 
-    private static bool IsAllowedAssetUrl(string? url)
+    internal static bool IsAllowedAssetUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url) ||
             !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
