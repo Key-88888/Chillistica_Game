@@ -1,4 +1,4 @@
-using Xunit;
+﻿using Xunit;
 
 using Chillistica_game.App.Services;
 
@@ -74,15 +74,35 @@ public sealed class StrategyComposerComposeTests
     }
 
     [Theory]
-    [InlineData("youtube", 3)]
-    [InlineData("discord", 3)]
-    [InlineData("roblox", 2)]
-    [InlineData("fortnite", 2)]
-    public void GetCandidateCount_ReturnsShippedCatalogStrategyCount(
-        string appId,
-        int expectedCount)
+    [InlineData("youtube")]
+    [InlineData("discord")]
+    [InlineData("roblox")]
+    [InlineData("fortnite")]
+    public void GetCandidateCount_MatchesShippedCatalog(string appId)
     {
-        Assert.Equal(expectedCount, StrategyComposer.GetCandidateCount(appId));
+        // Compare against the catalog itself rather than a hardcoded number.
+        // GetCandidateCount swallows every failure and returns 1, so a catalog
+        // that fails to load looks exactly like a one-candidate app — that is
+        // the regression worth catching. A literal count would instead just
+        // break every time the fallback ladder is widened, which is a change we
+        // actively want to make.
+        int shipped = StrategyComposer.LoadCatalog(appId).Strategies.Count;
+
+        Assert.Equal(shipped, StrategyComposer.GetCandidateCount(appId));
+    }
+
+    [Fact]
+    public void ShippedCatalogs_OfferMoreThanOneCandidate()
+    {
+        // The whole point of the auto-fallback is having somewhere to fall back
+        // TO. An app that ships a single strategy silently turns the ladder into
+        // a single attempt.
+        foreach (string appId in DiagnosticsTargetCatalog.AllAppIds)
+        {
+            Assert.True(
+                StrategyComposer.GetCandidateCount(appId) > 1,
+                $"App '{appId}' ships only one strategy candidate; the fallback ladder needs at least two.");
+        }
     }
 
     [Fact]

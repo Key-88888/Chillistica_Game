@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -30,15 +30,25 @@ public static class StrategyComposer
         new(StringComparer.OrdinalIgnoreCase)
     {
         "--dpi-desync",
+        "--dpi-desync-any-protocol",
+        "--dpi-desync-badseq-increment",
+        "--dpi-desync-cutoff",
         "--dpi-desync-fake-quic",
+        "--dpi-desync-fake-tls",
+        "--dpi-desync-fake-unknown-udp",
         "--dpi-desync-fake-tls-mod",
+        "--dpi-desync-fakedsplit-pattern",
         "--dpi-desync-fooling",
+        "--dpi-desync-hostfakesplit-mod",
         "--dpi-desync-repeats",
         "--dpi-desync-split-pos",
+        "--dpi-desync-split-seqovl",
+        "--dpi-desync-split-seqovl-pattern",
         "--filter-l7",
         "--filter-tcp",
         "--filter-udp",
         "--hostlist",
+        "--ip-id",
         "--new",
         "--wf-tcp",
         "--wf-udp"

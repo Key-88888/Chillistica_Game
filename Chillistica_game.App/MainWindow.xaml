@@ -132,6 +132,7 @@
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0">
@@ -379,6 +380,32 @@
                                 Click="DismissUpdateButton_Click"/>
                     </Grid>
                 </Border>
+
+                <Grid Grid.Row="5" Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="Пока защита включена, в фоне работает служебный процесс winws.exe — это нормально."
+                               Foreground="#5F665F"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="1"
+                            x:Name="UninstallButton"
+                            Content="Удалить программу"
+                            FontSize="11"
+                            Padding="10,4"
+                            Background="Transparent"
+                            Foreground="#5F665F"
+                            BorderBrush="#3B3228"
+                            BorderThickness="1"
+                            Cursor="Hand"
+                            Click="UninstallButton_Click"/>
+                </Grid>
 
             </Grid>
         </Grid>

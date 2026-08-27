@@ -44,6 +44,14 @@ public sealed class WinwsEngine : IAsyncDisposable
     // window closes must therefore not be allowed to start a new one.
     private volatile bool _shuttingDown;
 
+    // Last-constructed instance, used ONLY as a crash-time backstop: App-level
+    // AppDomain.UnhandledException / DispatcherUnhandledException handlers have
+    // no other way to reach the engine to stop it before the process dies. The
+    // Job Object remains the real guarantee (this is best-effort, managed-code
+    // only — it cannot run at all on a hard TerminateProcess / Task Manager
+    // "End task").
+    internal static WinwsEngine? ActiveInstance { get; private set; }
+
     /// <summary>
     /// Raised off the UI thread when a RUNNING engine dies on its own (crash,
     /// external kill, WinDivert driver unload). Without it the UI keeps claiming
@@ -65,10 +73,21 @@ public sealed class WinwsEngine : IAsyncDisposable
         // Secondary backstop for a clean shutdown; the Job Object is the one
         // that actually holds under abnormal termination.
         AppDomain.CurrentDomain.ProcessExit += (_, _) => StopImmediate();
+
+        ActiveInstance = this;
     }
 
     public bool IsRunning =>
         _process is { HasExited: false };
+
+    /// <summary>
+    /// False when the Job Object with KILL_ON_JOB_CLOSE could not be created
+    /// (CreateJobObject/SetInformationJobObject failed — rare, but silent).
+    /// StartAsync already refuses to launch winws in that state; this is
+    /// exposed so the UI can explain WHY before the user even tries.
+    /// </summary>
+    public bool HasKillOnCloseGuarantee =>
+        _job != IntPtr.Zero;
 
     public string RecentOutput =>
         string.Join(Environment.NewLine, _recentOutput);
@@ -119,6 +138,24 @@ public sealed class WinwsEngine : IAsyncDisposable
             if (_shuttingDown)
             {
                 return "ENGINE_SHUTTING_DOWN";
+            }
+
+            // The Job Object is the ONLY thing that guarantees an elevated
+            // winws dies with this app on a hard kill (Task Manager "End
+            // task", TerminateProcess) — managed hooks like ProcessExit and
+            // the window's Closing handler cannot run in that case. If it
+            // failed to create (constructor time), retry once here in case
+            // that was transient; if it is still gone, refuse to start an
+            // unguarded elevated engine rather than silently proceed.
+            if (_job == IntPtr.Zero)
+            {
+                _job = CreateKillOnCloseJob();
+            }
+
+            if (_job == IntPtr.Zero)
+            {
+                _log?.Invoke("EngineJob", "GuardMissing; refusing to start unguarded engine");
+                return "ENGINE_JOB_GUARD_MISSING";
             }
 
             // Restart cleanly if something is already running.
@@ -206,8 +243,29 @@ public sealed class WinwsEngine : IAsyncDisposable
             }
 
             // Bind to the job BEFORE anything else can go wrong, so the OS owns
-            // the guarantee that winws dies with us.
-            AssignToJob(process);
+            // the guarantee that winws dies with us. If the binding itself
+            // fails, we now hold a RUNNING elevated engine that nothing would
+            // reap on a hard kill — exactly the orphan this class exists to
+            // prevent — so kill it here rather than leave it filtering traffic
+            // with no way to stop it.
+            if (!AssignToJob(process))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(5000);
+                }
+                catch
+                {
+                    // best effort — reported below either way
+                }
+
+                try { process.Dispose(); } catch { /* best effort */ }
+
+                _log?.Invoke("EngineStart", "JobAssignFailed; started engine was killed");
+
+                return "ENGINE_JOB_ASSIGN_FAILED";
+            }
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
@@ -544,6 +602,11 @@ public sealed class WinwsEngine : IAsyncDisposable
             _sync.Dispose();
 
             CloseJobOnce();
+
+            if (ReferenceEquals(ActiveInstance, this))
+            {
+                ActiveInstance = null;
+            }
         }
     }
 
@@ -606,11 +669,16 @@ public sealed class WinwsEngine : IAsyncDisposable
         }
     }
 
-    private void AssignToJob(Process process)
+    /// <summary>
+    /// Returns true only if the process is now bound to the kill-on-close job.
+    /// A false return means the caller must not keep the process alive: an
+    /// unbound elevated winws survives a hard kill of this app.
+    /// </summary>
+    private bool AssignToJob(Process process)
     {
         if (_job == IntPtr.Zero)
         {
-            return;
+            return false;
         }
 
         try
@@ -620,11 +688,16 @@ public sealed class WinwsEngine : IAsyncDisposable
                 _log?.Invoke(
                     "EngineJob",
                     $"AssignFailed; win32={Marshal.GetLastWin32Error()}");
+
+                return false;
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             _log?.Invoke("EngineJob", $"AssignException; {ex.Message}");
+            return false;
         }
     }
 

@@ -41,7 +41,7 @@
         },
         {
             "Path": "Engine\\winws2\\strategies\\fortnite.json",
-            "Sha256": "90AC7377F59C484E60650D0E31756333EB061E801BB797BB5CEC0E6BDA110261",
+            "Sha256": "EA90D4A604556CB0F054DF0A86040C32C8430C1091A3DBAA1ABA02CDBE63ADCB",
             "Required": true
         },
         {
@@ -51,7 +51,7 @@
         },
         {
             "Path": "Engine\\winws2\\strategies\\youtube.json",
-            "Sha256": "A2775B191E0D3A72CE6C468A358F5255A7AD3602D4BB2C0039775E0B27638401",
+            "Sha256": "DEC64DBD48E1818D5FDC2FD67C42E397F2C00FA249615F067CBC3B8160BDE930",
             "Required": true
         }
     ]

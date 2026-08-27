@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -14,6 +14,24 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Extra backstop, on top of WinwsEngine's own AppDomain.ProcessExit
+        // hook: a crash that terminates the process via an unhandled
+        // exception is not guaranteed to run ProcessExit the same way a clean
+        // return from Main() does. Best effort only — the Job Object
+        // (KILL_ON_JOB_CLOSE) is what actually holds if even this cannot run,
+        // e.g. a hard Task Manager "End task".
+        AppDomain.CurrentDomain.UnhandledException += (_, _) =>
+        {
+            try { WinwsEngine.ActiveInstance?.StopImmediate(); } catch { /* best effort */ }
+        };
+
+        DispatcherUnhandledException += (_, _) =>
+        {
+            try { WinwsEngine.ActiveInstance?.StopImmediate(); } catch { /* best effort */ }
+            // Deliberately not marking args.Handled = true: we only want the
+            // engine stopped before the app dies, not to suppress the crash.
+        };
+
         // Headless verification mode used by the trusted elevated updater
         // (apply-update.ps1): validate a downloaded package's detached signature
         // against the pinned public key, in this admin-only .NET 8 binary, and
@@ -43,9 +61,12 @@ public partial class App : Application
         }
 
         // Headless engine self-test (admin-only diagnostic): compose the winws
-        // command line for one app and actually launch the engine, so the real
-        // production code path (StrategyComposer + WinwsEngine) can be verified
-        // without the UI. Usage: --selftest-engine [appId] [resultFile]
+        // command line for one OR MORE apps and actually launch the engine, so the
+        // real production code path (StrategyComposer + WinwsEngine) can be verified
+        // without the UI. A comma-separated appId list (e.g. "youtube,discord,
+        // fortnite") composes the SAME multi-profile command the orchestrator sends
+        // when several apps are checked at once — the case the single-app test
+        // could not reach. Usage: --selftest-engine [app[:strategyIndex][,...]] [resultFile] [holdSeconds]
         if (e.Args.Length >= 1 &&
             string.Equals(e.Args[0], "--selftest-engine", StringComparison.OrdinalIgnoreCase))
         {
@@ -53,8 +74,20 @@ public partial class App : Application
             string resultPath = e.Args.Length >= 3
                 ? e.Args[2]
                 : Path.Combine(Path.GetTempPath(), "chillistica-selftest.txt");
+            // Optional 4th arg: keep the engine RUNNING this many seconds before
+            // tearing it down, so an external probe can measure reachability while
+            // the bypass is actually active. Without it the engine dies after ~3s
+            // and there is no window in which to measure anything.
+            int holdSeconds = 3;
 
-            Shutdown(RunEngineSelfTest(appId, resultPath));
+            if (e.Args.Length >= 4 &&
+                int.TryParse(e.Args[3], out int parsedHold) &&
+                parsedHold is > 0 and <= 600)
+            {
+                holdSeconds = parsedHold;
+            }
+
+            Shutdown(RunEngineSelfTest(appId, resultPath, holdSeconds));
             return;
         }
 
@@ -63,32 +96,65 @@ public partial class App : Application
         new MainWindow().Show();
     }
 
-    private static int RunEngineSelfTest(string appId, string resultPath)
+    private static int RunEngineSelfTest(string appId, string resultPath, int holdSeconds = 3)
     {
         var lines = new List<string>();
 
         try
         {
-            lines.Add($"appId={appId}");
+            // Each entry is "app" or "app:index", where index picks WHICH strategy
+            // candidate to run. Without it only candidate 0 is ever exercised, which
+            // is misleading: a target that candidate 0 fails to unblock may well be
+            // unblocked by candidate 2, and that is exactly what the fallback ladder
+            // in the real app would try next.
+            var picks = new List<(string AppId, int Index)>();
+
+            foreach (string raw in appId.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                string[] parts = raw.Split(':', 2);
+                string name = parts[0].Trim().ToLowerInvariant();
+
+                if (name.Length == 0)
+                {
+                    continue;
+                }
+
+                int index = 0;
+
+                if (parts.Length == 2 && int.TryParse(parts[1], out int parsedIndex) && parsedIndex >= 0)
+                {
+                    index = parsedIndex;
+                }
+
+                picks.Add((name, index));
+            }
+
+            if (picks.Count == 0)
+            {
+                picks.Add(("youtube", 0));
+            }
+
+            lines.Add($"appId={string.Join(",", picks.Select(p => $"{p.AppId}:{p.Index}"))}");
             lines.Add($"engineDir={StrategyComposer.EngineDirectory}");
             lines.Add($"exe={StrategyComposer.WinwsExecutablePath}");
             lines.Add($"exeExists={File.Exists(StrategyComposer.WinwsExecutablePath)}");
 
             StrategyComposer.ComposedProfile composed =
-                StrategyComposer.Compose(new[] { (appId, 0) });
+                StrategyComposer.Compose(picks);
 
             lines.Add($"args={composed.Arguments}");
 
             var engine = new WinwsEngine();
 
             string start = engine
-                .StartWithAppsAsync(new Dictionary<string, int> { [appId] = 0 })
+                .StartWithAppsAsync(picks.ToDictionary(p => p.AppId, p => p.Index))
                 .GetAwaiter()
                 .GetResult();
 
             lines.Add($"startResult={start}");
+            lines.Add($"holdSeconds={holdSeconds}");
 
-            Thread.Sleep(3000);
+            Thread.Sleep(TimeSpan.FromSeconds(holdSeconds));
 
             bool running = engine.IsRunning;
             lines.Add($"isRunning={running}");

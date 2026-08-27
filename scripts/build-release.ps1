@@ -22,7 +22,17 @@ function New-CleanDirectory {
     )
 
     if (Test-Path -LiteralPath $Path) {
-        Remove-Item -LiteralPath $Path -Recurse -Force
+        try {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        }
+        catch {
+            # A previous run of the packaged app leaves the WinDivert driver
+            # loaded, and a loaded driver keeps WinDivert64.sys open. The delete
+            # then fails PART WAY THROUGH, having already removed some engine
+            # files, leaving a staging dir that looks built but is missing
+            # binaries. Fail loudly with the fix instead of corrupting it.
+            throw "Не удалось очистить $Path : $($_.Exception.Message)`n`nСкорее всего загружен драйвер WinDivert от предыдущего запуска - он держит WinDivert64.sys. Снимите его из-под администратора и повторите сборку:`n    sc.exe stop WinDivert`n    sc.exe delete WinDivert"
+        }
     }
 
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
@@ -176,6 +186,39 @@ $runFirstPath = Join-Path $PSScriptRoot "run-first.cmd"
 Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $frameworkDependentDir "run-first.cmd") -Force
 Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $selfContainedDir "run-first.cmd") -Force
 
+# Shipped INSIDE the archive so removal never depends on the app still being
+# able to start, on GitHub being reachable, or on the user finding the repo.
+$uninstallCmdPath = Join-Path $PSScriptRoot "uninstall.cmd"
+$uninstallPs1Path = Join-Path $PSScriptRoot "uninstall.ps1"
+$checkBypassPath = Join-Path $PSScriptRoot "check-bypass.ps1"
+$tryStrategyPath = Join-Path $PSScriptRoot "try-strategy.ps1"
+$traceGamePath = Join-Path $PSScriptRoot "trace-game.ps1"
+Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $frameworkDependentDir "uninstall.cmd") -Force
+Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $frameworkDependentDir "uninstall.ps1") -Force
+Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $selfContainedDir "uninstall.cmd") -Force
+Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $selfContainedDir "uninstall.ps1") -Force
+
+# Diagnostic: proves whether the bypass actually punches through, instead of
+# leaving the user with an ambiguous "best effort" label in the UI.
+Copy-Item -LiteralPath $checkBypassPath -Destination (Join-Path $frameworkDependentDir "check-bypass.ps1") -Force
+Copy-Item -LiteralPath $checkBypassPath -Destination (Join-Path $selfContainedDir "check-bypass.ps1") -Force
+
+# Ручной перебор: для игр обход нельзя подтвердить автоматически - веб-адреса
+# отвечают и без него, а зайти в матч скрипт не может.
+Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $frameworkDependentDir "try-strategy.ps1") -Force
+Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $selfContainedDir "try-strategy.ps1") -Force
+
+# Трассировка: показывает, куда реально ходит игра и что из этого не отвечает.
+# Нужна там, где проверка известных адресов ничего не даёт.
+Copy-Item -LiteralPath $traceGamePath -Destination (Join-Path $frameworkDependentDir "trace-game.ps1") -Force
+Copy-Item -LiteralPath $traceGamePath -Destination (Join-Path $selfContainedDir "trace-game.ps1") -Force
+
+# Обёртка для двойного щелчка: копирование команд в PowerShell раз за разом
+# ломалось об относительные пути, а тут путь всегда равен папке файла.
+$tryFortniteCmd = Join-Path $PSScriptRoot "ПРОВЕРИТЬ-FORTNITE.cmd"
+Copy-Item -LiteralPath $tryFortniteCmd -Destination (Join-Path $frameworkDependentDir "ПРОВЕРИТЬ-FORTNITE.cmd") -Force
+Copy-Item -LiteralPath $tryFortniteCmd -Destination (Join-Path $selfContainedDir "ПРОВЕРИТЬ-FORTNITE.cmd") -Force
+
 @"
 Chillistica_game $Version
 
@@ -185,6 +228,10 @@ Chillistica_game $Version
 4. Нажмите единственную кнопку «Включить защиту».
 
 Для этой версии требуется .NET 8 Desktop Runtime. Если он отсутствует, run-first.cmd установит его автоматически.
+
+Чтобы полностью удалить программу: закройте её и запустите uninstall.cmd из этой же папки
+(или нажмите «Удалить программу» внутри приложения) — он остановит движок, снимет
+драйвер WinDivert и почистит логи/настройки. Папку после этого удалите вручную.
 "@ | Set-Content -LiteralPath (Join-Path $frameworkDependentDir "README_FIRST.txt") -Encoding UTF8
 
 @"
@@ -194,6 +241,10 @@ Chillistica_game $Version
 2. Дважды щёлкните run-first.cmd (или запустите Chillistica_game.exe напрямую).
 3. Подтвердите запрос контроля учётных записей (UAC).
 4. Нажмите единственную кнопку «Включить защиту».
+
+Чтобы полностью удалить программу: закройте её и запустите uninstall.cmd из этой же папки
+(или нажмите «Удалить программу» внутри приложения) — он остановит движок, снимет
+драйвер WinDivert и почистит логи/настройки. Папку после этого удалите вручную.
 "@ | Set-Content -LiteralPath (Join-Path $selfContainedDir "README_FIRST.txt") -Encoding UTF8
 
 $frameworkDependentZip = Join-Path $releaseDir "Chillistica_game-$Version-win-x64.zip"

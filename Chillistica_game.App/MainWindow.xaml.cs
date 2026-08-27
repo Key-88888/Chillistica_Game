@@ -1,8 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Chillistica_game.App.Services;
 
 namespace Chillistica_game.App;
@@ -30,6 +32,12 @@ public partial class MainWindow : Window
 
     private bool _protectionEnabled;
     private bool _busy;
+
+    // Keeps the window visibly alive while the ladder runs: the flow can spend
+    // tens of seconds inside network probes, and one static line reads as a freeze.
+    private DispatcherTimer? _busyTimer;
+    private string _busyMessage = string.Empty;
+    private DateTime _busyStartedUtc;
 
     // Cancels an in-flight enable flow when the window closes.
     private CancellationTokenSource? _enableCts;
@@ -110,7 +118,7 @@ public partial class MainWindow : Window
             title: "Идёт настройка",
             description: "Проверяем приложения, соединение и подбираем сценарий");
 
-        EventText.Text = "Проверяем доступность и включаем обход";
+        StartBusyIndicator("Проверяем доступность и включаем обход");
 
         _logger.Info(stage: "ProtectionAnalysis", result: "Started");
 
@@ -122,6 +130,14 @@ public partial class MainWindow : Window
 
         try
         {
+            // Created on the dispatcher thread, so Report marshals back here on
+            // its own and the handler can touch the UI directly.
+            var progress = new Progress<string>(message =>
+            {
+                _busyMessage = message;
+                EventText.Text = message;
+            });
+
             var orchestrator =
                 new StrategyOrchestrator(_engine, _diagnosticsService);
 
@@ -129,7 +145,8 @@ public partial class MainWindow : Window
                 await orchestrator.EnableAsync(
                     checkedAppIds,
                     _settings.LastGoodStrategyIndex,
-                    _enableCts.Token);
+                    _enableCts.Token,
+                    progress);
 
             _settingsService.Save(_settings);
             UpdateScenarioLabelsFromProtectionResults(appResults);
@@ -153,6 +170,17 @@ public partial class MainWindow : Window
                     result: "Completed; allDirectNoBypassNeeded=true");
 
                 return;
+            }
+
+            if (engineResponse.Equals("ENGINE_JOB_GUARD_MISSING", StringComparison.OrdinalIgnoreCase))
+            {
+                await _engine.StopAsync();
+
+                throw new InvalidOperationException(
+                    "Windows не дал гарантию автоматического закрытия движка вместе с программой " +
+                    "(Job Object). Запуск заблокирован, чтобы обход не мог остаться работать в фоне " +
+                    "без возможности его выключить. Перезапустите программу; если ошибка повторяется — " +
+                    "перезагрузите компьютер.");
             }
 
             if (!engineStarted || !_engine.IsRunning)
@@ -210,6 +238,11 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // Индикатор должен гаснуть на ЛЮБОМ выходе, включая ошибку и
+            // отмену при закрытии окна, иначе таймер продолжит тикать по
+            // элементам управления уже завершённого сценария.
+            StopBusyIndicator();
+
             _busy = false;
             ToggleProtectionButton.IsEnabled = true;
         }
@@ -570,7 +603,124 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Entry point for users who cannot find/run uninstall.cmd on their own —
+    /// the actual complaint this exists to fix is "I can't get rid of this".
+    /// Stops the engine from inside the app (fastest, most reliable path: no
+    /// need to hunt for a stray process afterwards) and hands off to
+    /// uninstall.cmd for the system-wide cleanup (driver service, leftover
+    /// 0.4.x service, LocalAppData) that only an external script can do once
+    /// this process has exited.
+    /// </summary>
+    private void UninstallButton_Click(object sender, RoutedEventArgs e)
+    {
+        MessageBoxResult confirm = MessageBox.Show(
+            "Программа будет удалена полностью:\n\n" +
+            "• остановится защита и движок winws;\n" +
+            "• снимется драйвер WinDivert (если его не использует другая программа);\n" +
+            "• удалится старая служба версии 0.4.x, если она осталась;\n" +
+            "• очистятся логи и настройки;\n" +
+            "• папка программы удалится сама после закрытия окна.\n\n" +
+            "Откроется отдельное окно — просто дождитесь его окончания.\n\nПродолжить?",
+            "Удаление Chillistica_game",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        string uninstallScript = Path.Combine(AppContext.BaseDirectory, "uninstall.cmd");
+
+        if (!File.Exists(uninstallScript))
+        {
+            MessageBox.Show(
+                $"Не найден uninstall.cmd рядом с программой:\n{AppContext.BaseDirectory}\n\n" +
+                "Он лежит рядом с Chillistica_game.exe в архиве релиза — если вы его удалили, " +
+                "скачайте архив ещё раз или удалите вручную по инструкции в README.",
+                "Chillistica_game",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+
+        try
+        {
+            _enableCts?.Cancel();
+            _engine.StopImmediate();
+            _logger.Info(stage: "Application", result: "StoppedForUninstall");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(stage: "UninstallStop", exception: ex);
+        }
+
+        try
+        {
+            // This process is already elevated, so the child inherits the
+            // same token — uninstall.cmd's own self-elevate check simply
+            // passes through immediately with no second UAC prompt.
+            // -AssumeYes: the confirmation above already covers folder removal,
+            // so the script must not ask a second time in its own console.
+            // WorkingDirectory is deliberately NOT the program folder — a process
+            // whose current directory is inside it would block its deletion.
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = uninstallScript,
+                Arguments = "-AssumeYes",
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System),
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(stage: "UninstallLaunch", exception: ex);
+
+            MessageBox.Show(
+                $"Не удалось запустить uninstall.cmd автоматически: {ex.Message}\n\n" +
+                $"Запустите его вручную из папки:\n{AppContext.BaseDirectory}",
+                "Chillistica_game",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            return;
+        }
+
+        Application.Current.Shutdown();
+    }
+
     // ---- UI helpers ------------------------------------------------------
+
+    private void StartBusyIndicator(string initialMessage)
+    {
+        _busyMessage = initialMessage;
+        _busyStartedUtc = DateTime.UtcNow;
+
+        _busyTimer?.Stop();
+        _busyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+
+        _busyTimer.Tick += (_, _) =>
+        {
+            int seconds = (int)(DateTime.UtcNow - _busyStartedUtc).TotalSeconds;
+
+            // The dots keep moving even when the stage itself has not changed, so
+            // "still working" is distinguishable from "stuck".
+            string dots = new string('.', 1 + (seconds % 3));
+
+            ToggleProtectionButton.Content = "Настройка" + dots;
+            EventText.Text = $"{_busyMessage} · {seconds} с";
+        };
+
+        _busyTimer.Start();
+    }
+
+    private void StopBusyIndicator()
+    {
+        _busyTimer?.Stop();
+        _busyTimer = null;
+    }
 
     private void SetStatus(bool active, string title, string description)
     {
