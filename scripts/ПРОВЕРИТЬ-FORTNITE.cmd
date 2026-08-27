@@ -1,64 +1,39 @@
 @echo off
-setlocal enabledelayedexpansion
+rem ---------------------------------------------------------------------------
+rem  ASCII ONLY. Do not put Cyrillic text in this file.
+rem
+rem  cmd.exe reads .cmd files using the system OEM codepage, not UTF-8. Russian
+rem  text saved as UTF-8 therefore decodes into garbage, lines break apart, and
+rem  cmd starts executing fragments as commands - which is how an earlier version
+rem  of this file ended up relaunching itself in a UAC loop.
+rem
+rem  All user-facing Russian text lives in try-strategy.ps1, where PowerShell
+rem  reads UTF-8 (with BOM) correctly. This file only elevates and hands over.
+rem ---------------------------------------------------------------------------
+
+setlocal
 cd /d "%~dp0"
-chcp 65001 >nul
-title Проверка Fortnite - подбор стратегии обхода
 
-rem Обёртка для ручного подбора стратегии: двойной щелчок, без единой команды.
-rem Существует потому, что копирование команд в PowerShell раз за разом ломалось
-rem об относительные пути - скрипт запускался не из своей папки и не находился.
-rem Здесь путь всегда %~dp0, то есть папка самого файла.
-
+rem Already elevated? Then run the menu. Otherwise elevate ONCE and stop this
+rem instance - no goto, no loop, so a failed elevation cannot repeat forever.
 net session >nul 2>&1
-if not %errorlevel%==0 (
-    echo Нужны права администратора - движку нужен драйвер WinDivert.
-    echo Сейчас появится запрос UAC, подтвердите его.
-    echo.
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs -WorkingDirectory '%~dp0'"
-    exit /b
-)
+if errorlevel 1 goto elevate
 
-if not exist "%~dp0try-strategy.ps1" (
-    echo НЕ НАЙДЕН try-strategy.ps1 рядом с этим файлом.
-    echo Распакуйте архив целиком, а не отдельные файлы.
-    echo.
-    pause
-    exit /b 1
-)
+if not exist "%~dp0try-strategy.ps1" goto missing
 
-:menu
-cls
-echo ===============================================================
-echo   Подбор стратегии обхода для Fortnite
-echo ===============================================================
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0try-strategy.ps1" -App fortnite -Menu
+exit /b
+
+:elevate
+echo Administrator rights are required (the engine needs the WinDivert driver).
+echo A UAC prompt will appear - please confirm it.
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0try-strategy.ps1" -App fortnite -List
-echo.
-echo ===============================================================
-echo  Введите номер стратегии (0, 1, 2 ...) и нажмите Enter.
-echo  Начинайте с 0 - он покрывает всё сразу.
-echo  Пустой ввод или q - выход.
-echo ===============================================================
-echo.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs -WorkingDirectory '%~dp0'"
+exit /b
 
-set "choice="
-set /p "choice=Номер: "
-
-if "!choice!"=="" goto :eof
-if /i "!choice!"=="q" goto :eof
-
-echo.
-echo Включаю стратегию !choice! на 10 минут.
-echo ОТКРОЙТЕ EPIC GAMES LAUNCHER И ПРОВЕРЬТЕ ИГРУ.
-echo.
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0try-strategy.ps1" -App fortnite -Index !choice! -Minutes 10
-
-echo.
-echo ===============================================================
-echo  Заработало - запомните номер !choice! и сообщите его.
-echo  Не заработало - попробуйте следующий номер.
-echo ===============================================================
+:missing
+echo try-strategy.ps1 was not found next to this file.
+echo Unpack the whole archive, not single files.
 echo.
 pause
-goto menu
+exit /b 1

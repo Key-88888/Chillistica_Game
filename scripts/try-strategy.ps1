@@ -29,7 +29,13 @@ param(
     [string]$App = "fortnite",
     [int]$Index = 0,
     [int]$Minutes = 5,
-    [switch]$List
+    [switch]$List,
+
+    # Интерактивный режим: печатает лестницу и спрашивает номер, пока не выйдут.
+    # Нужен потому, что меню НЕЛЬЗЯ держать в .cmd: cmd.exe читает такие файлы в
+    # системной кодировке, русский текст в UTF-8 рассыпается, строки рвутся, и
+    # управляющие конструкции перестают работать. Здесь же кодировка корректна.
+    [switch]$Menu
 )
 
 $ErrorActionPreference = "Continue"
@@ -80,6 +86,42 @@ for ($i = 0; $i -lt $strategies.Count; $i++) {
 }
 
 if ($List) { exit 0 }
+
+if ($Menu) {
+    if (-not (Test-IsAdmin)) {
+        Write-Host ""
+        Write-Host "Нужны права администратора: движку нужен драйвер WinDivert." -ForegroundColor Red
+        Write-Host "Закройте это окно и запустите ПРОВЕРИТЬ-FORTNITE.cmd заново." -ForegroundColor Red
+        Read-Host "Enter — выход"
+        exit 1
+    }
+
+    while ($true) {
+        Write-Host ""
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host " Введите номер стратегии и нажмите Enter. Начните с 0." -ForegroundColor Yellow
+        Write-Host " Пустая строка или q — выход." -ForegroundColor Yellow
+        Write-Host "===============================================================" -ForegroundColor Yellow
+
+        $answer = Read-Host "Номер"
+
+        if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^[qQ]') { exit 0 }
+
+        $picked = 0
+        if (-not [int]::TryParse($answer.Trim(), [ref]$picked) -or $picked -lt 0 -or $picked -ge $strategies.Count) {
+            Write-Host "Нужно число от 0 до $($strategies.Count - 1)." -ForegroundColor Red
+            continue
+        }
+
+        # Запускаем себя же с выбранным номером — в отдельном процессе, чтобы
+        # ошибка одного прогона не роняла меню целиком.
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -App $app -Index $picked -Minutes $Minutes
+
+        Write-Host ""
+        Write-Host "Заработало — запомните номер $picked и сообщите его." -ForegroundColor Cyan
+        Write-Host "Нет — введите следующий номер." -ForegroundColor Cyan
+    }
+}
 
 if ($Index -lt 0 -or $Index -ge $strategies.Count) {
     Write-Host ""
