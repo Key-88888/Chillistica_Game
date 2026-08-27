@@ -213,6 +213,12 @@ Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $selfContainedDi
 Copy-Item -LiteralPath $traceGamePath -Destination (Join-Path $frameworkDependentDir "trace-game.ps1") -Force
 Copy-Item -LiteralPath $traceGamePath -Destination (Join-Path $selfContainedDir "trace-game.ps1") -Force
 
+# Обёртка для двойного щелчка: копирование команд в PowerShell раз за разом
+# ломалось об относительные пути, а тут путь всегда равен папке файла.
+$tryFortniteCmd = Join-Path $PSScriptRoot "ПРОВЕРИТЬ-FORTNITE.cmd"
+Copy-Item -LiteralPath $tryFortniteCmd -Destination (Join-Path $frameworkDependentDir "ПРОВЕРИТЬ-FORTNITE.cmd") -Force
+Copy-Item -LiteralPath $tryFortniteCmd -Destination (Join-Path $selfContainedDir "ПРОВЕРИТЬ-FORTNITE.cmd") -Force
+
 @"
 Chillistica_game $Version
 

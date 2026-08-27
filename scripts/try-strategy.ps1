@@ -112,7 +112,7 @@ Start-Sleep -Seconds 6
 
 if ($proc.HasExited -and -not (Test-Path -LiteralPath $rf)) {
     Write-Host ""
-    Write-Host "Движок не запустился (код выхода 0x{0:X8})." -f $proc.ExitCode -ForegroundColor Red
+    Write-Host ("Движок не запустился (код выхода 0x{0:X8})." -f $proc.ExitCode) -ForegroundColor Red
     Write-Host "Похоже, папка программы повреждена — скачайте архив заново." -ForegroundColor Red
     exit 2
 }
