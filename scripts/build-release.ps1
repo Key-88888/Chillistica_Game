@@ -22,7 +22,17 @@ function New-CleanDirectory {
     )
 
     if (Test-Path -LiteralPath $Path) {
-        Remove-Item -LiteralPath $Path -Recurse -Force
+        try {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        }
+        catch {
+            # A previous run of the packaged app leaves the WinDivert driver
+            # loaded, and a loaded driver keeps WinDivert64.sys open. The delete
+            # then fails PART WAY THROUGH, having already removed some engine
+            # files, leaving a staging dir that looks built but is missing
+            # binaries. Fail loudly with the fix instead of corrupting it.
+            throw "Не удалось очистить $Path : $($_.Exception.Message)`n`nСкорее всего загружен драйвер WinDivert от предыдущего запуска - он держит WinDivert64.sys. Снимите его из-под администратора и повторите сборку:`n    sc.exe stop WinDivert`n    sc.exe delete WinDivert"
+        }
     }
 
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
