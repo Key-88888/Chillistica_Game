@@ -192,6 +192,7 @@ $uninstallCmdPath = Join-Path $PSScriptRoot "uninstall.cmd"
 $uninstallPs1Path = Join-Path $PSScriptRoot "uninstall.ps1"
 $checkBypassPath = Join-Path $PSScriptRoot "check-bypass.ps1"
 $tryStrategyPath = Join-Path $PSScriptRoot "try-strategy.ps1"
+$traceGamePath = Join-Path $PSScriptRoot "trace-game.ps1"
 Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $frameworkDependentDir "uninstall.cmd") -Force
 Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $frameworkDependentDir "uninstall.ps1") -Force
 Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $selfContainedDir "uninstall.cmd") -Force
@@ -206,6 +207,11 @@ Copy-Item -LiteralPath $checkBypassPath -Destination (Join-Path $selfContainedDi
 # отвечают и без него, а зайти в матч скрипт не может.
 Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $frameworkDependentDir "try-strategy.ps1") -Force
 Copy-Item -LiteralPath $tryStrategyPath -Destination (Join-Path $selfContainedDir "try-strategy.ps1") -Force
+
+# Трассировка: показывает, куда реально ходит игра и что из этого не отвечает.
+# Нужна там, где проверка известных адресов ничего не даёт.
+Copy-Item -LiteralPath $traceGamePath -Destination (Join-Path $frameworkDependentDir "trace-game.ps1") -Force
+Copy-Item -LiteralPath $traceGamePath -Destination (Join-Path $selfContainedDir "trace-game.ps1") -Force
 
 @"
 Chillistica_game $Version
