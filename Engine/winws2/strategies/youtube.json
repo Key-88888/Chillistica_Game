@@ -2,8 +2,175 @@
     "SchemaVersion": 1,
     "AppId": "youtube",
     "DisplayName": "YouTube",
-    "_comment": "Лестница кандидатов для автоперебора. Порядок = приоритет: сверху техники актуальной сборки Flowseal (multisplit/seqovl/hostfakesplit), снизу прежний preset1 от bol-van. Источник техник: github.com/Flowseal/zapret-discord-youtube, см. licenses/FLOWSEAL_NOTICE.md. К каждому кандидату прицеплен профиль подавления QUIC: без него браузер уходит на UDP/443 и обход TCP не даёт видимого эффекта.",
+    "_comment": "Лестница кандидатов для автоперебора. Порядок = приоритет: сверху техники, ПОДТВЕРЖДЁННЫЕ живым замером (МГТС/ТСПУ, 27.08.2026 - победили варианты с fooling=badseq), ниже частично сработавшие, затем остальные. На другом провайдере порядок может быть иным - приложение всё равно переберёт всю лестницу. Источник техник: github.com/Flowseal/zapret-discord-youtube, см. licenses/FLOWSEAL_NOTICE.md. К каждому кандидату прицеплен профиль подавления QUIC: без него браузер уходит на UDP/443 и обход TCP не даёт видимого эффекта.",
     "Strategies": [
+        {
+            "StrategyId": "yt-fake-multisplit-seqovl681-badseq",
+            "Description": "FAKE TLS AUTO ALT2: fake+multisplit, перекрытие 681, экстремальный badseq-increment. ПОДТВЕРЖДЕНО замером на МГТС (AS25513) 27.08.2026: пробивает обе цели.",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "yt-fake-multidisorder-badseq",
+            "Description": "FAKE TLS AUTO: fake+multidisorder (обратный порядок фрагментов), badseq-fooling, автогенерируемый fake-TLS. ПОДТВЕРЖДЕНО замером на МГТС (AS25513) 27.08.2026: пробивает обе цели.",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badseq --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "yt-multisplit-sniext-seqovl679",
+            "Description": "ALT7: разрез сразу после SNI-расширения (sniext+1) — точечная атака на структуру ClientHello. Замер на МГТС 27.08.2026: пробивает частично (1 из 2 целей).",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=multisplit --dpi-desync-split-pos=2,sniext+1 --dpi-desync-split-seqovl=679 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "yt-fake-multisplit-badseq1000",
+            "Description": "ALT4: fake+multisplit, badseq-increment=1000. Замер на МГТС 27.08.2026: пробивает частично (1 из 2 целей).",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=1000 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "yt-fake-tlsmod-none-badseq2",
+            "Description": "ALT8: fake без модификации TLS, badseq с шагом 2. Файлов не требует. Замер на МГТС 27.08.2026: пробивает частично (1 из 2 целей).",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-fake-tls-mod=none --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2 --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "yt-fake-badseq2-google-ch",
+            "Description": "SIMPLE FAKE ALT: простой fake с ClientHello google.com, badseq с шагом 2. Замер на МГТС 27.08.2026: пробивает частично (1 из 2 целей).",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
+                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
+                    "Required": true
+                }
+            ]
+        },
+        {
+            "StrategyId": "yt-legacy-preset1-md5sig",
+            "Description": "Прежняя стратегия (preset1_example.cmd от bol-van): fake+multidisorder с md5sig. На МГТС замером 27.08.2026 не пробила, оставлена последней как запасной вариант для сетей, где работает именно она.",
+            "TcpPorts": "443",
+            "UdpPorts": "443",
+            "UsesUdp": true,
+            "Confidence": "KnownGood",
+            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
+            "FileHashes": [
+                {
+                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
+                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
+                    "Required": true
+                },
+                {
+                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
+                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
+                    "Required": true
+                }
+            ]
+        },
         {
             "StrategyId": "yt-multisplit-seqovl681-google-ch",
             "Description": "general.bat: multisplit с перекрытием seqovl=681 и реальным ClientHello google.com. Базовая техника актуальной сборки Flowseal.",
@@ -57,32 +224,6 @@
             ]
         },
         {
-            "StrategyId": "yt-multisplit-sniext-seqovl679",
-            "Description": "ALT7: разрез сразу после SNI-расширения (sniext+1) — точечная атака на структуру ClientHello.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=multisplit --dpi-desync-split-pos=2,sniext+1 --dpi-desync-split-seqovl=679 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
-                    "Required": true
-                }
-            ]
-        },
-        {
             "StrategyId": "yt-hostfakesplit-google",
             "Description": "ALT12/EXP: hostfakesplit — разрез по позиции Host с подменой домена на www.google.com, TCP-timestamp fooling. Файлов не требует.",
             "TcpPorts": "443",
@@ -111,32 +252,6 @@
             "UsesUdp": true,
             "Confidence": "KnownGood",
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fooling=ts --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "yt-fake-multisplit-seqovl681-badseq",
-            "Description": "FAKE TLS AUTO ALT2: fake+multisplit, перекрытие 681, экстремальный badseq-increment.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-split-seqovl=681 --dpi-desync-split-pos=1 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=10000000 --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern=\"files\\tls_clienthello_www_google_com.bin\" --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-youtube.txt",
@@ -208,27 +323,6 @@
             ]
         },
         {
-            "StrategyId": "yt-fake-multidisorder-badseq",
-            "Description": "FAKE TLS AUTO: fake+multidisorder (обратный порядок фрагментов), badseq-fooling, автогенерируемый fake-TLS.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=badseq --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                }
-            ]
-        },
-        {
             "StrategyId": "yt-fake-hostfakesplit-altorder",
             "Description": "ALT3: fake+hostfakesplit с альтернативным порядком сегментов.",
             "TcpPorts": "443",
@@ -257,100 +351,6 @@
             "UsesUdp": true,
             "Confidence": "KnownGood",
             "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=hostfakesplit --dpi-desync-repeats=4 --dpi-desync-fooling=ts --dpi-desync-hostfakesplit-mod=host=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "yt-fake-multisplit-badseq1000",
-            "Description": "ALT4: fake+multisplit, badseq-increment=1000.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake,multisplit --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=1000 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "yt-fake-tlsmod-none-badseq2",
-            "Description": "ALT8: fake без модификации TLS, badseq с шагом 2. Файлов не требует.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-fake-tls-mod=none --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2 --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "yt-fake-badseq2-google-ch",
-            "Description": "SIMPLE FAKE ALT: простой fake с ClientHello google.com, badseq с шагом 2.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --ip-id=zero --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fooling=badseq --dpi-desync-badseq-increment=2 --dpi-desync-fake-tls=\"files\\tls_clienthello_www_google_com.bin\" --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
-            "FileHashes": [
-                {
-                    "Path": "Engine\\winws2\\files\\list-youtube.txt",
-                    "Sha256": "7E5B315DA0472AAD9A78948496E6B123E5AF59EA0557A8A97AB215A5DF81892B",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\quic_initial_www_google_com.bin",
-                    "Sha256": "F4589C57749F956BB30538197A521D7005F8B0A8723B4707E72405E51DDAC50A",
-                    "Required": true
-                },
-                {
-                    "Path": "Engine\\winws2\\files\\tls_clienthello_www_google_com.bin",
-                    "Sha256": "936C2BEE4CFB80AA3C426B2DCBCC834B3FBCD1ADB17172959DC569C73A14275C",
-                    "Required": true
-                }
-            ]
-        },
-        {
-            "StrategyId": "yt-legacy-preset1-md5sig",
-            "Description": "Прежняя стратегия (preset1_example.cmd от bol-van): fake+multidisorder с md5sig. На МГТС замером 27.08.2026 не пробила, оставлена последней как запасной вариант для сетей, где работает именно она.",
-            "TcpPorts": "443",
-            "UdpPorts": "443",
-            "UsesUdp": true,
-            "Confidence": "KnownGood",
-            "ArgumentsFragment": "--filter-tcp=443 --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake,multidisorder --dpi-desync-split-pos=1,midsld --dpi-desync-repeats=11 --dpi-desync-fooling=md5sig --dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com --new --filter-udp=443 --filter-l7=quic --hostlist=\"files\\list-youtube.txt\" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic=\"files\\quic_initial_www_google_com.bin\"",
             "FileHashes": [
                 {
                     "Path": "Engine\\winws2\\files\\list-youtube.txt",

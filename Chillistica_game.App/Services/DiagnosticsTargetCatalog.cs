@@ -1,9 +1,23 @@
-namespace Chillistica_game.App.Services;
+﻿namespace Chillistica_game.App.Services;
 
 public static class DiagnosticsTargetCatalog
 {
     public static IReadOnlyList<string> AllAppIds { get; } =
         new[] { "youtube", "discord", "roblox", "fortnite" };
+
+    /// <summary>
+    /// Whether "all probes succeed" is enough to conclude the app needs no bypass.
+    ///
+    /// False for Fortnite: its probes are web/auth endpoints on 443, but the game
+    /// itself talks to matchmaking and game servers over dynamic ports. Measured
+    /// on MGTS — every Epic web endpoint answers normally while the game does not
+    /// work, so skipping on those probes means never applying a bypass to the
+    /// traffic that is actually broken.
+    /// </summary>
+    public static bool DirectProbesProveTheAppWorks(string appId)
+    {
+        return !string.Equals(appId?.Trim(), "fortnite", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static IReadOnlyList<DiagnosticsTarget> GetTargetsForApp(
         string appId)

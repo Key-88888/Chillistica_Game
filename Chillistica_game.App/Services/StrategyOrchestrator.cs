@@ -39,7 +39,12 @@ public sealed class StrategyOrchestrator
 
         foreach (string appId in checkedAppIds)
         {
+            // For some apps a green probe does not mean the app works: Fortnite's
+            // probes are web/auth endpoints, while the game itself uses dynamic
+            // ports. Skipping on probe success would mean never bypassing the
+            // traffic that is actually broken.
             bool alreadyDirect =
+                DiagnosticsTargetCatalog.DirectProbesProveTheAppWorks(appId) &&
                 await IsFullyReachableDirectAsync(appId, cancellationToken);
 
             if (alreadyDirect)

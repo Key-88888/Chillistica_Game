@@ -30,9 +30,12 @@ public static class StrategyComposer
         new(StringComparer.OrdinalIgnoreCase)
     {
         "--dpi-desync",
+        "--dpi-desync-any-protocol",
         "--dpi-desync-badseq-increment",
+        "--dpi-desync-cutoff",
         "--dpi-desync-fake-quic",
         "--dpi-desync-fake-tls",
+        "--dpi-desync-fake-unknown-udp",
         "--dpi-desync-fake-tls-mod",
         "--dpi-desync-fakedsplit-pattern",
         "--dpi-desync-fooling",
