@@ -176,6 +176,15 @@ $runFirstPath = Join-Path $PSScriptRoot "run-first.cmd"
 Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $frameworkDependentDir "run-first.cmd") -Force
 Copy-Item -LiteralPath $runFirstPath -Destination (Join-Path $selfContainedDir "run-first.cmd") -Force
 
+# Shipped INSIDE the archive so removal never depends on the app still being
+# able to start, on GitHub being reachable, or on the user finding the repo.
+$uninstallCmdPath = Join-Path $PSScriptRoot "uninstall.cmd"
+$uninstallPs1Path = Join-Path $PSScriptRoot "uninstall.ps1"
+Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $frameworkDependentDir "uninstall.cmd") -Force
+Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $frameworkDependentDir "uninstall.ps1") -Force
+Copy-Item -LiteralPath $uninstallCmdPath -Destination (Join-Path $selfContainedDir "uninstall.cmd") -Force
+Copy-Item -LiteralPath $uninstallPs1Path -Destination (Join-Path $selfContainedDir "uninstall.ps1") -Force
+
 @"
 Chillistica_game $Version
 
@@ -185,6 +194,10 @@ Chillistica_game $Version
 4. Нажмите единственную кнопку «Включить защиту».
 
 Для этой версии требуется .NET 8 Desktop Runtime. Если он отсутствует, run-first.cmd установит его автоматически.
+
+Чтобы полностью удалить программу: закройте её и запустите uninstall.cmd из этой же папки
+(или нажмите «Удалить программу» внутри приложения) — он остановит движок, снимет
+драйвер WinDivert и почистит логи/настройки. Папку после этого удалите вручную.
 "@ | Set-Content -LiteralPath (Join-Path $frameworkDependentDir "README_FIRST.txt") -Encoding UTF8
 
 @"
@@ -194,6 +207,10 @@ Chillistica_game $Version
 2. Дважды щёлкните run-first.cmd (или запустите Chillistica_game.exe напрямую).
 3. Подтвердите запрос контроля учётных записей (UAC).
 4. Нажмите единственную кнопку «Включить защиту».
+
+Чтобы полностью удалить программу: закройте её и запустите uninstall.cmd из этой же папки
+(или нажмите «Удалить программу» внутри приложения) — он остановит движок, снимет
+драйвер WinDivert и почистит логи/настройки. Папку после этого удалите вручную.
 "@ | Set-Content -LiteralPath (Join-Path $selfContainedDir "README_FIRST.txt") -Encoding UTF8
 
 $frameworkDependentZip = Join-Path $releaseDir "Chillistica_game-$Version-win-x64.zip"

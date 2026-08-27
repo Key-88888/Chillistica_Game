@@ -14,6 +14,24 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Extra backstop, on top of WinwsEngine's own AppDomain.ProcessExit
+        // hook: a crash that terminates the process via an unhandled
+        // exception is not guaranteed to run ProcessExit the same way a clean
+        // return from Main() does. Best effort only — the Job Object
+        // (KILL_ON_JOB_CLOSE) is what actually holds if even this cannot run,
+        // e.g. a hard Task Manager "End task".
+        AppDomain.CurrentDomain.UnhandledException += (_, _) =>
+        {
+            try { WinwsEngine.ActiveInstance?.StopImmediate(); } catch { /* best effort */ }
+        };
+
+        DispatcherUnhandledException += (_, _) =>
+        {
+            try { WinwsEngine.ActiveInstance?.StopImmediate(); } catch { /* best effort */ }
+            // Deliberately not marking args.Handled = true: we only want the
+            // engine stopped before the app dies, not to suppress the crash.
+        };
+
         // Headless verification mode used by the trusted elevated updater
         // (apply-update.ps1): validate a downloaded package's detached signature
         // against the pinned public key, in this admin-only .NET 8 binary, and
