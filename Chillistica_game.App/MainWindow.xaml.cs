@@ -1,9 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Chillistica_game.App.Services;
 
 namespace Chillistica_game.App;
@@ -31,6 +32,12 @@ public partial class MainWindow : Window
 
     private bool _protectionEnabled;
     private bool _busy;
+
+    // Keeps the window visibly alive while the ladder runs: the flow can spend
+    // tens of seconds inside network probes, and one static line reads as a freeze.
+    private DispatcherTimer? _busyTimer;
+    private string _busyMessage = string.Empty;
+    private DateTime _busyStartedUtc;
 
     // Cancels an in-flight enable flow when the window closes.
     private CancellationTokenSource? _enableCts;
@@ -111,7 +118,7 @@ public partial class MainWindow : Window
             title: "Идёт настройка",
             description: "Проверяем приложения, соединение и подбираем сценарий");
 
-        EventText.Text = "Проверяем доступность и включаем обход";
+        StartBusyIndicator("Проверяем доступность и включаем обход");
 
         _logger.Info(stage: "ProtectionAnalysis", result: "Started");
 
@@ -123,6 +130,14 @@ public partial class MainWindow : Window
 
         try
         {
+            // Created on the dispatcher thread, so Report marshals back here on
+            // its own and the handler can touch the UI directly.
+            var progress = new Progress<string>(message =>
+            {
+                _busyMessage = message;
+                EventText.Text = message;
+            });
+
             var orchestrator =
                 new StrategyOrchestrator(_engine, _diagnosticsService);
 
@@ -130,7 +145,8 @@ public partial class MainWindow : Window
                 await orchestrator.EnableAsync(
                     checkedAppIds,
                     _settings.LastGoodStrategyIndex,
-                    _enableCts.Token);
+                    _enableCts.Token,
+                    progress);
 
             _settingsService.Save(_settings);
             UpdateScenarioLabelsFromProtectionResults(appResults);
@@ -222,6 +238,11 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // Индикатор должен гаснуть на ЛЮБОМ выходе, включая ошибку и
+            // отмену при закрытии окна, иначе таймер продолжит тикать по
+            // элементам управления уже завершённого сценария.
+            StopBusyIndicator();
+
             _busy = false;
             ToggleProtectionButton.IsEnabled = true;
         }
@@ -671,6 +692,35 @@ public partial class MainWindow : Window
     }
 
     // ---- UI helpers ------------------------------------------------------
+
+    private void StartBusyIndicator(string initialMessage)
+    {
+        _busyMessage = initialMessage;
+        _busyStartedUtc = DateTime.UtcNow;
+
+        _busyTimer?.Stop();
+        _busyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+
+        _busyTimer.Tick += (_, _) =>
+        {
+            int seconds = (int)(DateTime.UtcNow - _busyStartedUtc).TotalSeconds;
+
+            // The dots keep moving even when the stage itself has not changed, so
+            // "still working" is distinguishable from "stuck".
+            string dots = new string('.', 1 + (seconds % 3));
+
+            ToggleProtectionButton.Content = "Настройка" + dots;
+            EventText.Text = $"{_busyMessage} · {seconds} с";
+        };
+
+        _busyTimer.Start();
+    }
+
+    private void StopBusyIndicator()
+    {
+        _busyTimer?.Stop();
+        _busyTimer = null;
+    }
 
     private void SetStatus(bool active, string title, string description)
     {

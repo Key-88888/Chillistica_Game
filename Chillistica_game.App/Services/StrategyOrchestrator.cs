@@ -32,8 +32,16 @@ public sealed class StrategyOrchestrator
     public async Task<(bool EngineStarted, string EngineResponse, IReadOnlyList<AppProtectionResult> AppResults)> EnableAsync(
         IReadOnlyList<string> checkedAppIds,
         IDictionary<string, int> lastGoodStrategyIndex,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<string>? progress = null)
     {
+        // The ladder can run many rounds, each with multi-second probes. Without
+        // progress the window shows one unchanging line long enough to look
+        // frozen, which is what users read as "it hung".
+        progress?.Report(
+            checkedAppIds.Count == 1
+                ? "Проверяю, работает ли приложение без обхода…"
+                : $"Проверяю, какие из {checkedAppIds.Count} приложений работают без обхода…");
         var appResults = new List<AppProtectionResult>();
         var bypassAppIds = new List<string>();
 
@@ -95,6 +103,11 @@ public sealed class StrategyOrchestrator
 
         for (int round = 0; round < rounds; round++)
         {
+            progress?.Report(
+                rounds > 1
+                    ? $"Подбираю сценарий: попытка {round + 1} из {rounds} — {string.Join(", ", bypassAppIds)}"
+                    : $"Включаю обход: {string.Join(", ", bypassAppIds)}");
+
             // Every round resends the FULL bypass set, so apps that already work
             // keep their index instead of dropping out of the composed argv.
             var selections =
@@ -122,6 +135,8 @@ public sealed class StrategyOrchestrator
             // fragment shadowing a hostlist-scoped one). Carrying forward an
             // earlier "Active" would report a bypass that is no longer live.
             probedIndex = new Dictionary<string, int>(selections);
+
+            progress?.Report($"Проверяю результат попытки {round + 1}…");
 
             // Check the apps CONCURRENTLY too. With several apps ticked, doing this in
             // sequence multiplied the per-app probe cost by the number of apps, on
